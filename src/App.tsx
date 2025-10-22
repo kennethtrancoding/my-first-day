@@ -18,7 +18,7 @@ import Onboarding from "./components/Transition/Onboarding";
 import SignupVerificationCode from "./components/Transition/SignupVerificationCode";
 
 const queryClient = new QueryClient();
-const basename = import.meta.env.PROD ? "/my-first-day" : "/";
+const basename = "/";
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
@@ -43,7 +43,7 @@ const App = () => (
 					<Route path="/home/settings/" element={<SettingsPage />} />
 					<Route path="/home/resources/map/" element={<Map />} />
 					<Route
-						path="/home/messages/mentors-directory/:last-selected?/"
+						path="/home/messages/mentors-directory/:mentorSlug?/"
 						element={<MentorDirectory />}
 					/>
 				</Routes>

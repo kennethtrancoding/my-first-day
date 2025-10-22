@@ -18,6 +18,7 @@ import Onboarding from "./components/Transition/Onboarding";
 import SignupVerificationCode from "./components/Transition/SignupVerificationCode";
 
 const queryClient = new QueryClient();
+const basename = import.meta.env.PROD ? "/my-first-day" : "/";
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
@@ -26,7 +27,7 @@ const App = () => (
 			<div className="bg-gray-200 text-center text-sm">
 				Demo version. No data is saved. Verification code is <strong>218058</strong>.
 			</div>
-			<BrowserRouter>
+			<BrowserRouter basename={basename}>
 				<Routes>
 					<Route path="/" element={<Index />} />
 					<Route path="/verification/" element={<SignupVerificationCode />} />

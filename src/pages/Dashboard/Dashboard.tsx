@@ -9,22 +9,19 @@ import { useNavigate } from "react-router-dom";
 
 function Mentor() {
 	const target = mentors.filter((m) => m.matchedWithUser === true && m.type === "peer");
-	if (target) {
-		return target.map((m) => {
-			return (
-				<>
-					<p className="font-medium">{m.name}</p>
-					<div className="flex items-center text-sm text-muted-foreground text-center">
-						<p className="text-sm text-muted-foreground">{m.grade}th Grade</p>{" "}
-						<Dot size={16} />
-						<p className="text-sm text-muted-foreground">{m.bio} </p>
-					</div>
-				</>
-			);
-		});
-	} else {
+	if (target.length === 0) {
 		return <p className="text-sm text-muted-foreground">No matched mentor</p>;
 	}
+
+	return target.map((m) => (
+		<div key={m.id} className="space-y-1">
+			<p className="font-medium">{m.name}</p>
+			<div className="flex items-center text-sm text-muted-foreground text-center">
+				<p className="text-sm text-muted-foreground">{m.grade}th Grade</p> <Dot size={16} />
+				<p className="text-sm text-muted-foreground">{m.bio} </p>
+			</div>
+		</div>
+	));
 }
 
 function DashboardPage() {

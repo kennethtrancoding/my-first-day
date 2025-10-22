@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>My First Day</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(function () {
+				const segment = "/my-first-day";
+				const path = window.location.pathname;
+				if (!path.startsWith(segment)) return;
+
+				const target = path.replace(segment, "") + window.location.search + window.location.hash;
+				const redirectUrl = segment + "/#redirect" + encodeURIComponent(target);
+				window.location.replace(redirectUrl);
+			})();
+		</script>
+	</head>
+	<body></body>
+</html>

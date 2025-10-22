@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/Home/DashboardLayout";
 import { mentors } from "@/people";
 import { featuredClubs, upcomingEvents } from "@/constants";
 import { useNavigate } from "react-router-dom";
+import placeholderProfile from "@/assets/placeholder-profile.svg";
 
 function Mentor() {
 	const target = mentors.filter((m) => m.matchedWithUser === true && m.type === "peer");
@@ -42,8 +43,10 @@ function DashboardPage() {
 					<CardContent className="flex items-center justify-between">
 						<div className="flex gap-4">
 							<img
-								src="../../src/assets/placeholder-profile.svg"
-								className="rounded-full w-11 h-11 mb-4"></img>
+								src={placeholderProfile}
+								alt="Peer mentor avatar"
+								className="rounded-full w-11 h-11 mb-4"
+							/>
 							<div>
 								<Mentor />
 							</div>

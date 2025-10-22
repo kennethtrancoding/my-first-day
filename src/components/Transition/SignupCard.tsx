@@ -10,25 +10,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
 import GoogleSignInButton from "@/components/ui/googleSignIn";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function SignupCard() {
-	useEffect(() => {
-		const script = document.createElement("script");
-		script.src = "https://apis.google.com/js/platform.js";
-		script.async = true;
-		script.defer = true;
-		document.body.appendChild(script);
-
-		return () => {
-			document.body.removeChild(script);
-		};
-	}, []);
+	const navigate = useNavigate();
 
 	function handleLogin() {
-		window.location.href = "/verification/";
+		navigate("/verification/");
 	}
 
 	return (
@@ -41,7 +30,7 @@ function SignupCard() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-4">
-					{GoogleSignInButton("signup")}
+					<GoogleSignInButton type="signup" />
 					<hr />
 					<div className="grid gap-2">
 						<Label htmlFor="email">Email</Label>
@@ -56,11 +45,11 @@ function SignupCard() {
 					<Button className="w-full" onClick={handleLogin}>
 						Sign Up
 					</Button>
-					<a
+					<Link
 						className="text-sm text-muted-foreground hover:underline text-center mt-2"
-						href="/log-in/">
+						to="/log-in/">
 						Log into an existing account
-					</a>
+					</Link>
 				</CardFooter>
 			</Card>
 		</div>

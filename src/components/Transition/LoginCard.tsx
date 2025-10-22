@@ -9,24 +9,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
-import GoogleSignInButton from "@/components/ui/googleSignIn";
 import { Dot } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import GoogleSignInButton from "@/components/ui/googleSignIn";
 
 function LoginCard() {
-	useEffect(() => {
-		const script = document.createElement("script");
-		script.src = "https://apis.google.com/js/platform.js";
-		script.async = true;
-		script.defer = true;
-		document.body.appendChild(script);
-
-		return () => {
-			document.body.removeChild(script);
-		};
-	}, []);
-
 	function handleLogin() {
 		window.location.href = "/home/";
 	}
@@ -41,7 +28,7 @@ function LoginCard() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-4">
-					{GoogleSignInButton("login")}
+					<GoogleSignInButton type="login" />
 					<hr />
 					<div className="grid gap-2">
 						<Label htmlFor="email">Email</Label>
@@ -57,13 +44,13 @@ function LoginCard() {
 						Log In
 					</Button>
 					<div className="flex items-center text-sm text-muted-foreground text-center mt-2">
-						<a href="/sign-up/" className="hover:underline">
+						<Link to="/sign-up/" className="hover:underline">
 							Create account
-						</a>
+						</Link>
 						<Dot size={16} />
-						<a href="/" className="hover:underline">
+						<Link to="/" className="hover:underline">
 							Reset password
-						</a>
+						</Link>
 					</div>
 				</CardFooter>
 			</Card>

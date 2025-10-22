@@ -18,7 +18,7 @@ import Onboarding from "./components/Transition/Onboarding";
 import SignupVerificationCode from "./components/Transition/SignupVerificationCode";
 
 const queryClient = new QueryClient();
-const basename = "/";
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>

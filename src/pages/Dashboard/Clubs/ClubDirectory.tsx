@@ -169,9 +169,16 @@ const ClubDirectory = () => {
 									<Button
 										variant="ghost"
 										size="sm"
-										asChild
-										onClick={(event) => event.stopPropagation()}>
-										<a href={`mailto:${club.contactEmail}`}>Email advisor</a>
+										onClick={(event) => {
+											event.stopPropagation();
+											const advisorId = club.advisorProfile?.id;
+											const target =
+												advisorId != null
+													? `/home/messages/${advisorId}/`
+													: "/home/messages/";
+											navigate(target);
+										}}>
+										Message advisor
 									</Button>
 								</CardFooter>
 							</Card>

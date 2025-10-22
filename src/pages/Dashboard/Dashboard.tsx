@@ -15,9 +15,10 @@ function Mentor() {
 
 	return target.map((m) => (
 		<div key={m.id} className="space-y-1">
-			<p className="font-medium">{m.name}</p>
-			<div className="flex items-center text-sm text-muted-foreground text-center">
-				<p className="text-sm text-muted-foreground">{m.grade}th Grade</p> <Dot size={16} />
+			<p className="font-medium text-lg">{m.name}</p>
+			<div className="hidden md:flex items-center text-sm text-muted-foreground text-center">
+				<p className="text-sm text-muted-foreground">{m.grade}th Grade</p>
+				<Dot size={16} />
 				<p className="text-sm text-muted-foreground">{m.bio} </p>
 			</div>
 		</div>

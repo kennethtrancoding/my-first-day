@@ -44,6 +44,12 @@ const ClubDetail = () => {
 		);
 	}
 
+	const advisorId = club.advisorProfile?.id;
+	const openAdvisorMessages = () => {
+		const target = advisorId != null ? `/home/messages/${advisorId}/` : "/home/messages/";
+		navigate(target);
+	};
+
 	return (
 		<DashboardLayout activePage="clubs">
 			<div className="mx-auto flex max-w-6xl flex-col gap-8">
@@ -162,20 +168,19 @@ const ClubDetail = () => {
 										<Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
 										<div>
 											<p className="font-medium">Contact</p>
-											<p className="text-muted-foreground">
+											<Button
+												variant="link"
+												className="h-auto p-0 text-left text-muted-foreground"
+												onClick={openAdvisorMessages}>
 												{club.contactEmail}
-											</p>
+											</Button>
 										</div>
 									</div>
 									<Separator />
 									<Button
 										className="w-full"
-										onClick={() =>
-											window.open(
-												`mailto:${club.contactEmail}?subject=I want to join ${club.name}`
-											)
-										}>
-										Email the Advisor
+										onClick={openAdvisorMessages}>
+										Message the Advisor
 									</Button>
 								</CardContent>
 							</Card>

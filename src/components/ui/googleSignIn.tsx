@@ -20,7 +20,7 @@ export default function GoogleSignIn({ type }: GoogleSignInProps) {
 	const buttonContainerId = useId();
 
 	useEffect(() => {
-		const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+		const clientId = "412451533645-tgmjdta1gpbmrgppo7bkogon9uslfm2j.apps.googleusercontent.com";
 
 		if (!clientId) {
 			console.warn("[GoogleSignIn] Missing VITE_GOOGLE_CLIENT_ID env value.");
@@ -29,7 +29,7 @@ export default function GoogleSignIn({ type }: GoogleSignInProps) {
 
 		const ensureScript = () => {
 			const existingScript = document.querySelector<HTMLScriptElement>(
-				`script[src="${GOOGLE_SCRIPT_SRC}"]`,
+				`script[src="${GOOGLE_SCRIPT_SRC}"]`
 			);
 
 			if (existingScript) {

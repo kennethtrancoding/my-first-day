@@ -22,6 +22,11 @@ function Onboarding() {
 
 	const [currentStep, setCurrentStep] = React.useState<number>(2);
 
+	const lastNameRef = React.useRef<HTMLInputElement>(null);
+	const gradeRef = React.useRef<HTMLInputElement>(null);
+	const interestButtonRefs = React.useRef<HTMLButtonElement[]>([]);
+	const scheduleInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+
 	const [firstName, setFirstName] = React.useState<string>("");
 	const [lastName, setLastName] = React.useState<string>("");
 
@@ -63,9 +68,17 @@ function Onboarding() {
 	function handleStudentInfoSubmit() {
 		if (grade.trim() && interests.trim()) {
 			setCurrentStep(5);
-		} else {
-			alert("Please fill in your grade and interests to continue.");
+			return;
 		}
+
+		if (!grade.trim()) {
+			gradeRef.current?.focus();
+		} else if (selectedInterests.length === 0) {
+			const firstInterest = interestButtonRefs.current.find(Boolean);
+			firstInterest?.focus();
+		}
+
+		alert("Please fill in your grade and interests to continue.");
 	}
 
 	function handleNameContinue() {
@@ -109,10 +122,6 @@ function Onboarding() {
 			case 1:
 				return <SignUp />;
 			case 2: {
-				const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-					if (e.key === "Enter") handleNameContinue();
-				};
-
 				return (
 					<>
 						<CardHeader>
@@ -130,7 +139,12 @@ function Onboarding() {
 									placeholder="Alex"
 									value={firstName}
 									onChange={(e) => setFirstName(e.target.value)}
-									onKeyDown={handleKeyDown}
+									onKeyDown={(event) => {
+										if (event.key !== "Enter") return;
+
+										event.preventDefault();
+										lastNameRef.current?.focus();
+									}}
 								/>
 							</div>
 							<div className="grid gap-2">
@@ -141,7 +155,13 @@ function Onboarding() {
 									placeholder="Rivera"
 									value={lastName}
 									onChange={(e) => setLastName(e.target.value)}
-									onKeyDown={handleKeyDown}
+									ref={lastNameRef}
+									onKeyDown={(event) => {
+										if (event.key !== "Enter") return;
+
+										event.preventDefault();
+										handleNameContinue();
+									}}
 								/>
 							</div>
 						</CardContent>
@@ -213,6 +233,27 @@ function Onboarding() {
 									onChange={(e) => setGrade(e.target.value)}
 									min={6}
 									max={8}
+									ref={gradeRef}
+									onKeyDown={(event) => {
+										if (event.key !== "Enter") return;
+
+										event.preventDefault();
+										if (!grade.trim()) {
+											gradeRef.current?.focus();
+											return;
+										}
+
+										if (selectedInterests.length === 0) {
+											const firstInterest =
+												interestButtonRefs.current.find(Boolean);
+											if (firstInterest) {
+												firstInterest.focus();
+												return;
+											}
+										}
+
+										handleStudentInfoSubmit();
+									}}
 								/>
 							</div>
 
@@ -220,7 +261,7 @@ function Onboarding() {
 								<Label>Your interests</Label>
 
 								<div className="flex flex-wrap gap-2">
-									{interestOptions.map((tag) => {
+									{interestOptions.map((tag, index) => {
 										const isSelected = selectedInterests.includes(tag);
 										return (
 											<Button
@@ -234,6 +275,11 @@ function Onboarding() {
 														? "bg-primary text-primary-foreground"
 														: "bg-muted text-foreground"
 												}`}
+												ref={(node) => {
+													if (node) {
+														interestButtonRefs.current[index] = node;
+													}
+												}}
 												aria-pressed={isSelected}>
 												{tag}
 											</Button>
@@ -348,6 +394,26 @@ function Onboarding() {
 													placeholder="Search for a room"
 													autoComplete="off"
 													className="flex-grow"
+													ref={(node) => {
+														scheduleInputRefs.current[periodIndex] = node;
+													}}
+													onKeyDown={(event) => {
+														if (event.key !== "Enter") return;
+
+														event.preventDefault();
+														const nextIndex = periodIndex + 1;
+														const nextInput =
+															scheduleInputRefs.current[nextIndex];
+
+														if (nextInput) {
+															nextInput.focus();
+															return;
+														}
+
+														if (isScheduleComplete) {
+															handleScheduleContinue();
+														}
+													}}
 												/>
 												{activePeriod === periodIndex && (
 													<div className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-md border border-border bg-card shadow-xl">

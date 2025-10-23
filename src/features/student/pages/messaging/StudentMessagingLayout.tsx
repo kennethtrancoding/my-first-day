@@ -8,7 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { mentors, Message, Person } from "@/people";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail } from "@/utils/auth";
+import { findAccount, getCurrentEmail } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import {
 	pushNotificationToOtherRole,
@@ -35,10 +35,24 @@ function cloneMentorThreads(): Person[] {
 }
 
 function StudentMessagingLayout() {
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest", []);
-	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:studentMessages`,
+	const navigate = useNavigate();
+	const currentEmail = React.useMemo(() => {
+		const raw = getCurrentEmail();
+		return raw ? raw : null;
+	}, []);
+	const account = React.useMemo(
+		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
 		[currentEmail]
+	);
+	const isAuthorized = React.useMemo(
+		() => Boolean(currentEmail && account && account.role === "student"),
+		[account, currentEmail]
+	);
+
+	const storageIdentity = currentEmail ?? "anonymous-student";
+	const storagePrefix = React.useMemo(
+		() => `user:${storageIdentity}:studentMessages`,
+		[storageIdentity]
 	);
 
 	const [threads, setThreads] = useStoredState<Person[]>(`${storagePrefix}:threads`, () =>
@@ -69,8 +83,17 @@ function StudentMessagingLayout() {
 		[]
 	);
 
-	const navigate = useNavigate();
 	const { id: routeId } = useParams<{ id?: string }>();
+
+	React.useEffect(() => {
+		if (!isAuthorized) {
+			navigate("/", { replace: true });
+		}
+	}, [isAuthorized, navigate]);
+
+	if (!isAuthorized) {
+		return null;
+	}
 
 	React.useEffect(() => {
 		if (routeId) {

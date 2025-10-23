@@ -112,15 +112,11 @@ const MentorRequestManagementPage = () => {
 			type: "connection",
 			contextId: studentId,
 		});
-		pushNotificationToOtherRole(
-			"student",
-			`${mentorDisplayName} accepted your request.`,
-			{
-				type: "connection",
-				contextId: studentId,
-				link: `/student/home/messages/${studentId}`,
-			}
-		);
+		pushNotificationToOtherRole("student", `${mentorDisplayName} accepted your request.`, {
+			type: "connection",
+			contextId: studentId,
+			link: `/student/home/messages/${studentId}`,
+		});
 	}
 
 	function handleMessage(studentId: number) {
@@ -230,9 +226,6 @@ const MentorRequestManagementPage = () => {
 												<CardContent className="flex-1 space-y-3 text-sm text-muted-foreground">
 													<p className="line-clamp-3">{student.bio}</p>
 													<div className="rounded-md border bg-muted/30 p-3">
-														<p className="text-xs font-medium text-muted-foreground">
-															Recent Activity
-														</p>
 														<p className="text-xs">
 															Last updated {student.lastMessage}
 														</p>

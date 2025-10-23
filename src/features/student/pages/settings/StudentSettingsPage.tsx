@@ -62,16 +62,17 @@ function SaveButton({
 }
 
 function StudentSettingsPage() {
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest", []);
+	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
+	const storageIdentity = currentEmail ?? "anonymous-student";
 	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:studentSettings`,
-		[currentEmail]
+		() => `user:${storageIdentity}:studentSettings`,
+		[storageIdentity]
 	);
 
-	const account = currentEmail && currentEmail !== "guest" ? findAccount(currentEmail) : null;
+	const account = currentEmail ? findAccount(currentEmail) : null;
 
 	const fallbackName = React.useMemo(() => {
-		if (!currentEmail || currentEmail === "guest") {
+		if (!currentEmail) {
 			return "Student";
 		}
 
@@ -105,25 +106,41 @@ function StudentSettingsPage() {
 		return "Student";
 	}, [account, currentEmail]);
 
+	const navigate = useNavigate();
+
+	React.useEffect(() => {
+		if (!currentEmail || !account || account.role !== "student") {
+			navigate("/", { replace: true });
+		}
+	}, [account, currentEmail, navigate]);
+
 	const [username, setUsername] = useStoredState<string>(
 		`${storagePrefix}:name`,
 		() => fallbackName
 	);
-	const email = currentEmail !== "guest" ? currentEmail : "";
+	const email = currentEmail ?? "";
 
 	const [selectedInterests, setSelectedInterests] = useStoredState<string>(
 		`${storagePrefix}:interests`,
-		""
+		() => (account?.profile?.interests ?? []).join(", ")
 	);
 	const [clothingSize, setClothingSize] = useStoredState<string>(
 		`${storagePrefix}:clothingSize`,
-		"M"
+		() => account?.profile?.clothingSize ?? "M"
 	);
-	const [bio, setBio] = useStoredState<string>(`${storagePrefix}:bio`, "");
+	const [bio, setBio] = useStoredState<string>(
+		`${storagePrefix}:bio`,
+		() => account?.profile?.bio ?? ""
+	);
 
 	const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useStoredState<boolean>(
 		`${storagePrefix}:emailNotificationsEnabled`,
-		true
+		() => {
+			if (account?.settings?.emailNotificationsEnabled != null) {
+				return account.settings.emailNotificationsEnabled;
+			}
+			return true;
+		}
 	);
 
 	const [fieldStatus, setFieldStatus] = React.useState<FieldStatusMap>({
@@ -133,7 +150,6 @@ function StudentSettingsPage() {
 		bio: "idle",
 		notifications: "idle",
 	});
-	const navigate = useNavigate();
 
 	function setSaveStatus(field: FieldKey, status: SaveState) {
 		setFieldStatus((prev) => ({ ...prev, [field]: status }));
@@ -164,7 +180,7 @@ function StudentSettingsPage() {
 				setUsername(nextName);
 			}
 
-			if (currentEmail !== "guest") {
+			if (currentEmail) {
 				updateAccount(currentEmail, {
 					profile: {
 						displayName: nextName,
@@ -176,7 +192,7 @@ function StudentSettingsPage() {
 			return;
 		}
 
-		if (currentEmail !== "guest") {
+		if (currentEmail) {
 			switch (field) {
 				case "interests":
 					updateAccount(currentEmail, {
@@ -217,12 +233,12 @@ function StudentSettingsPage() {
 	};
 
 	const handlePasswordReset = () => {
-		const initialEmailState = currentEmail !== "guest" ? currentEmail : "";
+		const initialEmailState = currentEmail ?? "";
 		navigate("/reset-password/", { state: { email: initialEmailState } });
 	};
 
 	const handleSwitchToMentor = () => {
-		if (currentEmail !== "guest") {
+		if (currentEmail) {
 			updateAccount(currentEmail, { role: "mentor" });
 		}
 		navigate("/mentor/registration/");

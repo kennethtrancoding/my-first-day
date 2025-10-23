@@ -11,7 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
 import { useMemo } from "react";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { findAccount, getCurrentEmail, logout } from "@/utils/auth";
 
 interface StudentDashboardSidebarProps {
 	activePage: string;
@@ -31,8 +31,7 @@ function StudentDashboardSidebar({ activePage }: StudentDashboardSidebarProps) {
 		const profile = account?.profile ?? {};
 		const first = profile.firstName?.trim();
 		const last = profile.lastName?.trim();
-		const fullName =
-			first && last ? `${first} ${last}` : first ?? profile.displayName?.trim();
+		const fullName = first && last ? `${first} ${last}` : first ?? profile.displayName?.trim();
 
 		return fullName || account?.email || "Guest";
 	}, [account]);
@@ -64,8 +63,14 @@ function StudentDashboardSidebar({ activePage }: StudentDashboardSidebarProps) {
 					})}
 				</SidebarMenu>
 			</SidebarContent>
-			<SidebarFooter className="p-4">
-				<Button className="w-full" onClick={() => navigate("/")}>
+			<SidebarFooter className="flex flex-col text-center p-4">
+				<p className="text-muted-foreground">Student account</p>
+				<Button
+					className="w-full"
+					onClick={() => {
+						logout();
+						navigate("/");
+					}}>
 					Log Out
 				</Button>
 			</SidebarFooter>

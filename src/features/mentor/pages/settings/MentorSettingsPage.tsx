@@ -63,18 +63,19 @@ function SaveButton({
 }
 
 const MentorSettingsPage = () => {
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest-mentor", []);
+	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
+	const storageIdentity = currentEmail ?? "anonymous-mentor";
 	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:mentorSettings`,
-		[currentEmail]
+		() => `user:${storageIdentity}:mentorSettings`,
+		[storageIdentity]
 	);
 	const navigate = useNavigate();
 
 	const account =
-		currentEmail && currentEmail !== "guest-mentor" ? findAccount(currentEmail) : null;
+		currentEmail ? findAccount(currentEmail) : null;
 
 	const fallbackName = React.useMemo(() => {
-		if (!currentEmail || currentEmail === "guest-mentor") {
+		if (!currentEmail) {
 			return "Mentor";
 		}
 
@@ -107,6 +108,12 @@ const MentorSettingsPage = () => {
 
 		return "Mentor";
 	}, [account, currentEmail]);
+
+	React.useEffect(() => {
+		if (!currentEmail || !account || account.role !== "mentor") {
+			navigate("/", { replace: true });
+		}
+	}, [account, currentEmail, navigate]);
 
 	const [displayName, setDisplayName] = useStoredState<string>(
 		`${storagePrefix}:name`,
@@ -144,7 +151,7 @@ const MentorSettingsPage = () => {
 		if (savedBio) {
 			return savedBio;
 		}
-		return "";
+		return "STEM lover excited to help new students get plugged into robotics and technology.";
 	});
 	const [bioStatus, setBioStatus] = React.useState<SaveState>("idle");
 
@@ -160,7 +167,7 @@ const MentorSettingsPage = () => {
 	);
 	const [officeStatus, setOfficeStatus] = React.useState<SaveState>("idle");
 
-	const preferredEmail = currentEmail !== "guest-mentor" ? currentEmail : "mentor@example.org";
+	const preferredEmail = currentEmail || "mentor@example.org";
 
 	const [emailNotifications, setEmailNotifications] = useStoredState<boolean>(
 		`${storagePrefix}:emailNotifications`,
@@ -205,7 +212,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleAvailabilitySave() {
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				settings: {
 					availability,
@@ -216,7 +223,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleBioSave() {
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				profile: {
 					mentorBio: bio,
@@ -227,7 +234,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleOfficeHoursSave() {
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				profile: {
 					mentorOfficeHours: officeHours,
@@ -238,7 +245,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleInterestsSave() {
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				profile: {
 					interests: parsedInterests,
@@ -249,7 +256,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleNotifSave() {
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				settings: {
 					emailNotificationsEnabled: emailNotifications,
@@ -261,7 +268,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleDigestSave() {
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				settings: {
 					digestWeekday,
@@ -273,7 +280,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handlePasswordReset() {
-		const initialEmailState = currentEmail !== "guest-mentor" ? currentEmail : "";
+		const initialEmailState = currentEmail ?? "";
 		navigate("/reset-password/", { state: { email: initialEmailState } });
 	}
 
@@ -291,7 +298,7 @@ const MentorSettingsPage = () => {
 		const nameToPersist = (displayName ?? "").trim() || fallbackName || "Mentor";
 		setDisplayName(nameToPersist);
 
-		if (currentEmail !== "guest-mentor") {
+		if (currentEmail) {
 			updateAccount(currentEmail, {
 				profile: {
 					displayName: nameToPersist,

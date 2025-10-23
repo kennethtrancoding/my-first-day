@@ -8,7 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { students, Message, Student } from "@/people";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail } from "@/utils/auth";
+import { findAccount, getCurrentEmail } from "@/utils/auth";
 import {
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
@@ -34,10 +34,24 @@ function cloneStudentThreads(): Student[] {
 }
 
 function MentorMessagingLayout() {
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest-mentor", []);
-	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:mentorMessages`,
+	const navigate = useNavigate();
+	const currentEmail = React.useMemo(() => {
+		const raw = getCurrentEmail();
+		return raw ? raw : null;
+	}, []);
+	const account = React.useMemo(
+		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
 		[currentEmail]
+	);
+	const isAuthorized = React.useMemo(
+		() => Boolean(currentEmail && account && account.role === "mentor"),
+		[account, currentEmail]
+	);
+
+	const storageIdentity = currentEmail ?? "anonymous-mentor";
+	const storagePrefix = React.useMemo(
+		() => `user:${storageIdentity}:mentorMessages`,
+		[storageIdentity]
 	);
 
 	const [threads, setThreads] = useStoredState<Student[]>(
@@ -68,8 +82,17 @@ function MentorMessagingLayout() {
 		[]
 	);
 
-	const navigate = useNavigate();
 	const { id: routeId } = useParams<{ id?: string }>();
+
+	React.useEffect(() => {
+		if (!isAuthorized) {
+			navigate("/", { replace: true });
+		}
+	}, [isAuthorized, navigate]);
+
+	if (!isAuthorized) {
+		return null;
+	}
 
 	React.useEffect(() => {
 		if (routeId) {

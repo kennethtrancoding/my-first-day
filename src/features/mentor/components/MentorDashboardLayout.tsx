@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import MentorDashboardSidebar from "./MentorDashboardSidebar";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
+import { findAccount, getCurrentEmail } from "@/utils/auth";
 
 interface MentorDashboardLayoutProps {
 	activePage: string;
@@ -14,8 +16,26 @@ interface MentorDashboardLayoutProps {
 }
 
 function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutProps) {
+	const navigate = useNavigate();
+	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
+	const account = React.useMemo(
+		() => (currentEmail ? findAccount(currentEmail) : null),
+		[currentEmail]
+	);
+
+	const isAuthorized = React.useMemo(
+		() => Boolean(currentEmail && account && account.role === "mentor"),
+		[account, currentEmail]
+	);
+
 	const [isNotificationOpen, setIsNotificationOpen] = React.useState(false);
 	const { notifications, unreadCount, markAllRead } = useNotifications("mentor");
+
+	React.useEffect(() => {
+		if (!isAuthorized) {
+			navigate("/", { replace: true });
+		}
+	}, [isAuthorized, navigate]);
 
 	function formatTimestamp(timestamp: number) {
 		try {
@@ -38,6 +58,10 @@ function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutPr
 			markAllRead();
 		}
 	}, [isNotificationOpen, markAllRead]);
+
+	if (!isAuthorized) {
+		return null;
+	}
 
 	return (
 		<SidebarProvider>

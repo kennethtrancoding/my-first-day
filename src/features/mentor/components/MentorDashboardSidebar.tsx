@@ -64,7 +64,8 @@ function MentorDashboardSidebar({ activePage }: MentorDashboardSidebarProps) {
 					))}
 				</SidebarMenu>
 			</SidebarContent>
-			<SidebarFooter className="p-4">
+			<SidebarFooter className="flex flex-col text-center p-4">
+				<p className="text-muted-foreground">Mentor account</p>
 				<Button
 					className="w-full"
 					onClick={() => {

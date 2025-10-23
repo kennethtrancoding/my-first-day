@@ -13,7 +13,7 @@ import { FormEvent, KeyboardEvent, useRef, useState } from "react";
 import { Dot } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import GoogleSignInButton from "@/components/ui/googleSignIn";
-import { authenticate } from "@/utils/auth";
+import { authenticate, type StoredAccount } from "@/utils/auth";
 import { cn } from "@/lib/utils";
 
 function LoginCard() {
@@ -24,6 +24,14 @@ function LoginCard() {
 		null
 	);
 	const navigate = useNavigate();
+
+	function handleSuccessfulLogin(account: StoredAccount) {
+		setFeedback(null);
+		setEmail("");
+		setPassword("");
+		const destination = account.role === "mentor" ? "/mentor/home/" : "/student/home/";
+		navigate(destination, { replace: true });
+	}
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -46,11 +54,7 @@ function LoginCard() {
 			return;
 		}
 
-		setFeedback(null);
-		setEmail("");
-		setPassword("");
-		const destination = account.role === "mentor" ? "/mentor/home/" : "/student/home/";
-		navigate(destination, { replace: true });
+		handleSuccessfulLogin(account);
 	}
 
 	function handleEmailKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -87,7 +91,16 @@ function LoginCard() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid gap-4">
-						<GoogleSignInButton type="login" />
+						<GoogleSignInButton
+							type="login"
+							onSuccess={handleSuccessfulLogin}
+							onError={(message) =>
+								setFeedback({
+									type: "error",
+									text: message,
+								})
+							}
+						/>
 						<hr />
 						<div className="grid gap-2">
 							<Label htmlFor="email">Email</Label>

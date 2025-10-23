@@ -31,12 +31,17 @@ function SignupCard() {
 		}
 
 		const existing = findAccount(trimmedEmail);
-		if (existing && existing.password !== password) {
-			setError("An account with this email already exists with a different password.");
+		if (existing) {
+			setError("An account with this email already exists. Log in instead.");
 			return;
 		}
 
-		registerAccount({ email: trimmedEmail, password });
+		const registered = registerAccount({ email: trimmedEmail, password });
+		if (!registered) {
+			setError("We couldn't create your account. Try again.");
+			return;
+		}
+
 		setError(null);
 		setEmail("");
 		setPassword("");
@@ -68,7 +73,16 @@ function SignupCard() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid gap-4">
-						<GoogleSignInButton type="signup" />
+						<GoogleSignInButton
+							type="signup"
+							onSuccess={() => {
+								setError(null);
+								setEmail("");
+								setPassword("");
+								navigate("/verification/");
+							}}
+							onError={(message) => setError(message)}
+						/>
 						<hr />
 						<div className="grid gap-2">
 							<Label htmlFor="email">Email</Label>

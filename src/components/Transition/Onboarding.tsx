@@ -15,7 +15,6 @@ import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
 import { interestOptions } from "@/constants";
 import { useNavigate } from "react-router-dom";
 import { Pin } from "lucide-react";
-import { useStoredState } from "@/hooks/useStoredState";
 import {
 	getPendingEmail,
 	getCurrentEmail,
@@ -34,36 +33,26 @@ function Onboarding() {
 		const current = getCurrentEmail();
 		return current || "guest";
 	}, []);
-	const storagePrefix = React.useMemo(() => `user:${emailContext}:onboarding`, [emailContext]);
 
-	const [currentStep, setCurrentStep] = useStoredState<number>(`${storagePrefix}:step`, 2);
+	const [currentStep, setCurrentStep] = React.useState<number>(2);
 
 	const lastNameRef = React.useRef<HTMLInputElement>(null);
 	const gradeRef = React.useRef<HTMLInputElement>(null);
 	const interestButtonRefs = React.useRef<HTMLButtonElement[]>([]);
 	const scheduleInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-	const [firstName, setFirstName] = useStoredState<string>(`${storagePrefix}:firstName`, "");
-	const [lastName, setLastName] = useStoredState<string>(`${storagePrefix}:lastName`, "");
-	const [role, setRole] = useStoredState<"Student" | "Mentor" | "">(`${storagePrefix}:role`, "");
+	const [firstName, setFirstName] = React.useState<string>("");
+	const [lastName, setLastName] = React.useState<string>("");
+	const [role, setRole] = React.useState<"Student" | "Mentor" | "">("");
 
-	const [schedule, setSchedule] = useStoredState<string[]>(
-		`${storagePrefix}:schedule`,
-		() => Array(7).fill("")
-	);
+	const [schedule, setSchedule] = React.useState<string[]>(() => Array(7).fill(""));
 	const [activePeriod, setActivePeriod] = React.useState<number | null>(null);
-	const [roomSearch, setRoomSearch] = useStoredState<string[]>(
-		`${storagePrefix}:roomSearch`,
-		() => Array(7).fill("")
-	);
+	const [roomSearch, setRoomSearch] = React.useState<string[]>(() => Array(7).fill(""));
 
-	const [grade, setGrade] = useStoredState<string>(`${storagePrefix}:grade`, "");
-	const [interests, setInterests] = useStoredState<string>(`${storagePrefix}:interests`, "");
+	const [grade, setGrade] = React.useState<string>("");
+	const [interests, setInterests] = React.useState<string>("");
 
-	const [selectedInterests, setSelectedInterests] = useStoredState<string[]>(
-		`${storagePrefix}:selectedInterests`,
-		() => []
-	);
+	const [selectedInterests, setSelectedInterests] = React.useState<string[]>([]);
 	const [errorMessage, setErrorMessage] = React.useState<string>("");
 	React.useEffect(() => {
 		setErrorMessage("");

@@ -55,8 +55,17 @@ export function registerAccount(input: {
 	password: string;
 	role?: AccountRole;
 	createdAt?: string;
-}) {
+}): StoredAccount | null {
 	const trimmedEmail = input.email.trim();
+	const accounts = getAccounts();
+	const existingIndex = accounts.findIndex(
+		(item) => item.email.toLowerCase() === trimmedEmail.toLowerCase()
+	);
+
+	if (existingIndex >= 0) {
+		return null;
+	}
+
 	const account: StoredAccount = {
 		email: trimmedEmail,
 		password: input.password,
@@ -66,23 +75,7 @@ export function registerAccount(input: {
 		settings: {},
 	};
 
-	const accounts = getAccounts();
-	const existingIndex = accounts.findIndex(
-		(item) => item.email.toLowerCase() === trimmedEmail.toLowerCase()
-	);
-
-	if (existingIndex >= 0) {
-		accounts[existingIndex] = {
-			...accounts[existingIndex],
-			password: account.password,
-			role: account.role,
-			profile: accounts[existingIndex].profile ?? {},
-			settings: accounts[existingIndex].settings ?? {},
-		};
-	} else {
-		accounts.push(account);
-	}
-
+	accounts.push(account);
 	saveAccounts(accounts);
 	setPendingEmail(account.email);
 	return account;

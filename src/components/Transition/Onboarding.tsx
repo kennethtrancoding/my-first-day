@@ -10,34 +10,64 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import SignUp from "@/pages/Landing/SignUp";
-import { buildingCoords } from "@/pages/Map/buildingCoords";
+import SignUp from "@/features/shared/pages/Landing/SignUp";
+import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
 import { interestOptions } from "@/constants";
 import { useNavigate } from "react-router-dom";
 import { Pin } from "lucide-react";
+import { useStoredState } from "@/hooks/useStoredState";
+import {
+	getPendingEmail,
+	getCurrentEmail,
+	setCurrentEmail,
+	clearPendingEmail,
+	updateAccount,
+} from "@/utils/auth";
 const SCHOOL_NAME = "Hollencrest Middle School";
 
 function Onboarding() {
 	const navigate = useNavigate();
 
-	const [currentStep, setCurrentStep] = React.useState<number>(2);
+	const emailContext = React.useMemo(() => {
+		const pending = getPendingEmail();
+		if (pending) return pending;
+		const current = getCurrentEmail();
+		return current || "guest";
+	}, []);
+	const storagePrefix = React.useMemo(() => `user:${emailContext}:onboarding`, [emailContext]);
+
+	const [currentStep, setCurrentStep] = useStoredState<number>(`${storagePrefix}:step`, 2);
 
 	const lastNameRef = React.useRef<HTMLInputElement>(null);
 	const gradeRef = React.useRef<HTMLInputElement>(null);
 	const interestButtonRefs = React.useRef<HTMLButtonElement[]>([]);
 	const scheduleInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-	const [firstName, setFirstName] = React.useState<string>("");
-	const [lastName, setLastName] = React.useState<string>("");
+	const [firstName, setFirstName] = useStoredState<string>(`${storagePrefix}:firstName`, "");
+	const [lastName, setLastName] = useStoredState<string>(`${storagePrefix}:lastName`, "");
+	const [role, setRole] = useStoredState<"Student" | "Mentor" | "">(`${storagePrefix}:role`, "");
 
-	const [schedule, setSchedule] = React.useState<string[]>(() => Array(7).fill(""));
+	const [schedule, setSchedule] = useStoredState<string[]>(
+		`${storagePrefix}:schedule`,
+		() => Array(7).fill("")
+	);
 	const [activePeriod, setActivePeriod] = React.useState<number | null>(null);
-	const [roomSearch, setRoomSearch] = React.useState<string[]>(() => Array(7).fill(""));
+	const [roomSearch, setRoomSearch] = useStoredState<string[]>(
+		`${storagePrefix}:roomSearch`,
+		() => Array(7).fill("")
+	);
 
-	const [grade, setGrade] = React.useState<string>("");
-	const [interests, setInterests] = React.useState<string>("");
+	const [grade, setGrade] = useStoredState<string>(`${storagePrefix}:grade`, "");
+	const [interests, setInterests] = useStoredState<string>(`${storagePrefix}:interests`, "");
 
-	const [selectedInterests, setSelectedInterests] = React.useState<string[]>([]);
+	const [selectedInterests, setSelectedInterests] = useStoredState<string[]>(
+		`${storagePrefix}:selectedInterests`,
+		() => []
+	);
+	const [errorMessage, setErrorMessage] = React.useState<string>("");
+	React.useEffect(() => {
+		setErrorMessage("");
+	}, [currentStep]);
 
 	const roomEntries = React.useMemo(() => buildingCoords, []);
 	const gradeNumber = React.useMemo(() => {
@@ -53,21 +83,66 @@ function Onboarding() {
 		setInterests(selectedInterests.join(", "));
 	}, [selectedInterests]);
 
-	function handleCompleteOnboarding() {
-		navigate("/home/");
+	function handleCompleteOnboarding(nextRole?: "Student" | "Mentor") {
+		const resolvedRole = nextRole ?? (role === "Mentor" ? "Mentor" : "Student");
+		const normalizedRole = resolvedRole === "Mentor" ? "mentor" : "student";
+
+		if (emailContext !== "guest") {
+			updateAccount(emailContext, {
+				role: normalizedRole,
+				profile: {
+					firstName,
+					lastName,
+					grade,
+					interests: selectedInterests,
+					schedule,
+				},
+			});
+			setCurrentEmail(emailContext);
+			clearPendingEmail();
+		}
+
+		setRole(resolvedRole);
+
+		if (normalizedRole === "mentor") {
+			navigate("/mentor/registration/");
+		} else {
+			navigate("/student/home/");
+		}
 	}
 
 	function selectRole(selectedRole: "Student" | "Mentor") {
+		setRole(selectedRole);
 		if (selectedRole === "Student") {
+			if (emailContext !== "guest") {
+				updateAccount(emailContext, {
+					role: "student",
+					profile: {
+						firstName,
+						lastName,
+					},
+				});
+			}
 			setCurrentStep(4);
 		} else {
-			handleCompleteOnboarding();
+			handleCompleteOnboarding("Mentor");
 		}
 	}
 
 	function handleStudentInfoSubmit() {
 		if (grade.trim() && interests.trim()) {
+			if (emailContext !== "guest") {
+				updateAccount(emailContext, {
+					profile: {
+						firstName,
+						lastName,
+						grade,
+						interests: selectedInterests,
+					},
+				});
+			}
 			setCurrentStep(5);
+			setErrorMessage("");
 			return;
 		}
 
@@ -78,22 +153,32 @@ function Onboarding() {
 			firstInterest?.focus();
 		}
 
-		alert("Please fill in your grade and interests to continue.");
+		setErrorMessage("Please fill in your grade and interests to continue.");
 	}
 
 	function handleNameContinue() {
 		if (firstName.trim() && lastName.trim()) {
+			if (emailContext !== "guest") {
+				updateAccount(emailContext, {
+					profile: {
+						firstName,
+						lastName,
+					},
+				});
+			}
 			setCurrentStep(3);
+			setErrorMessage("");
 		} else {
-			alert("Please enter your first and last name.");
+			setErrorMessage("Please enter your first and last name.");
 		}
 	}
 
 	function handleScheduleContinue() {
 		if (isScheduleComplete) {
-			handleCompleteOnboarding();
+			setErrorMessage("");
+			handleCompleteOnboarding("Student");
 		} else {
-			alert("Please enter your class schedule.");
+			setErrorMessage("Please enter your class schedule.");
 		}
 	}
 
@@ -118,6 +203,11 @@ function Onboarding() {
 	}
 
 	const renderCardContent = () => {
+		const errorNotice =
+			errorMessage && (
+				<p className="text-sm text-center text-destructive">{errorMessage}</p>
+			);
+
 		switch (currentStep) {
 			case 1:
 				return <SignUp />;
@@ -169,6 +259,7 @@ function Onboarding() {
 							<Button onClick={handleNameContinue} className="w-full">
 								Continue
 							</Button>
+							{errorNotice}
 							<button
 								className="text-sm text-muted-foreground hover:underline cursor-pointer"
 								onClick={() => navigate("/verification/")}>
@@ -295,6 +386,7 @@ function Onboarding() {
 								disabled={!grade.trim() || !interests.trim()}>
 								Continue
 							</Button>
+							{errorNotice}
 							<button
 								className="text-sm text-muted-foreground hover:underline cursor-pointer"
 								onClick={() => setCurrentStep(3)}>
@@ -395,7 +487,8 @@ function Onboarding() {
 													autoComplete="off"
 													className="flex-grow"
 													ref={(node) => {
-														scheduleInputRefs.current[periodIndex] = node;
+														scheduleInputRefs.current[periodIndex] =
+															node;
 													}}
 													onKeyDown={(event) => {
 														if (event.key !== "Enter") return;
@@ -493,6 +586,7 @@ function Onboarding() {
 								className="w-full">
 								Create Account
 							</Button>
+							{errorNotice}
 
 							<div className="flex flex-grow gap-4">
 								<button
@@ -502,7 +596,7 @@ function Onboarding() {
 								</button>
 								<button
 									className="text-sm text-muted-foreground hover:underline cursor-pointer"
-									onClick={() => (window.location.href = "/home/")}>
+									onClick={() => (window.location.href = "/student/home/")}>
 									Skip &rarr;
 								</button>
 							</div>

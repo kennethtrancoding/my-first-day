@@ -62,7 +62,7 @@ const ClubExplorer = () => {
 								</div>
 
 								<Button variant="outline" size="sm" className="w-full " asChild>
-									<Link to={`/home/clubs/${club.slug}/`}>
+									<Link to={`/student/home/clubs/${club.slug}/`}>
 										Learn More
 										<ArrowRight size={14} className="ml-2" />
 									</Link>
@@ -72,14 +72,14 @@ const ClubExplorer = () => {
 					))}
 				</div>
 
-					<div className="text-center">
-						<Button variant="hero" size="lg" asChild>
-							<Link to="/home/clubs/directory/">
-								Explore All Clubs
-								<ArrowRight size={20} className="ml-2" />
-							</Link>
-						</Button>
-					</div>
+				<div className="text-center">
+					<Button variant="hero" size="lg" asChild>
+						<Link to="/student/home/clubs/directory/">
+							Explore All Clubs
+							<ArrowRight size={20} className="ml-2" />
+						</Link>
+					</Button>
+				</div>
 			</div>
 		</section>
 	);

@@ -53,7 +53,7 @@ export default function GoogleSignIn({ type }: GoogleSignInProps) {
 					console.log("Google response:", response);
 
 					if (type === "login") {
-						navigate("/home/");
+						navigate("/student/home/");
 					} else if (type === "signup") {
 						navigate("/verification/");
 					}

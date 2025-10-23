@@ -15,7 +15,7 @@ const correctCode = "218058";
 function SignupVerificationCode() {
 	const navigate = useNavigate();
 
-	const [code, setCode] = React.useState(["", "", "", "", "", ""]);
+	const [code, setCode] = React.useState<string[]>(["", "", "", "", "", ""]);
 	const [error, setError] = React.useState(false);
 	const inputContainerRef = React.useRef<HTMLDivElement>(null);
 	const inputRefs = React.useRef<Array<HTMLInputElement | null>>([]);
@@ -43,7 +43,8 @@ function SignupVerificationCode() {
 
 		if (fullCode.length === 6) {
 			if (fullCode === correctCode) {
-				window.location.href = "/onboarding/";
+				setCode(["", "", "", "", "", ""]);
+				navigate("/onboarding/");
 			} else {
 				setCode(["", "", "", "", "", ""]);
 				setError(true);
@@ -124,8 +125,10 @@ function SignupVerificationCode() {
 						</div>
 					</div>
 				</CardContent>
-				<CardFooter>
-					<p id="error" className={error ? "text-red-600" : "hidden"}>
+				<CardFooter className="flex flex-col items-center">
+					<p
+						id="error"
+						className={error ? "text-sm text-center text-destructive" : "hidden"}>
 						Invalid code. Please try again.
 					</p>
 				</CardFooter>

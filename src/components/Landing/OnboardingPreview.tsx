@@ -152,7 +152,8 @@ const OnboardingPreview = () => {
 								variant="secondary"
 								className="w-full"
 								onClick={() =>
-									(window.location.href = "/home/messages/mentors-directory/")
+									(window.location.href =
+										"/student/home/messages/mentors-directory/")
 								}>
 								Connect with Mentors
 							</Button>

@@ -1,8 +1,8 @@
-import { Map as MapIcon, FileText, BookOpen, Users, Info, Settings, Library } from "lucide-react";
+import { Map as MapIcon, FileText, Sparkles, Users, CalendarDays, Settings } from "lucide-react";
 import type { NavigateFunction } from "react-router-dom";
 import { mentors } from "@/people";
 import type { Person } from "@/people";
-import { buildingCoords, type RoomData } from "@/pages/Map/buildingCoords";
+import { buildingCoords, type RoomData } from "@/features/shared/pages/map/buildingCoords";
 
 export const upcomingEvents = [
 	{
@@ -61,16 +61,14 @@ type ClubSeed = Omit<
 };
 
 const teacherLookup = new Map<number, Person>(
-	mentors
-		.filter((person) => person.type === "teacher")
-		.map((person) => [person.id, person])
+	mentors.filter((person) => person.type === "teacher").map((person) => [person.id, person])
 );
 
 const roomLookup = new Map<string, RoomData>(buildingCoords.map((room) => [room.room, room]));
 
 const formatClubLocation = (room?: RoomData) => {
 	if (!room) {
-		return "Location coming soon";
+		return "No location found";
 	}
 
 	return /^\d/.test(room.room) ? `Room ${room.room}` : room.room;
@@ -283,7 +281,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 				description: "Audit classroom bins and present recommendations to administration.",
 			},
 		],
-		requirements: "Open to all grades. Bring clothes you don’t mind getting a little dirty!",
+		requirements: "Open to all grades. Bring clothes you don't mind getting a little dirty!",
 		tags: ["Sustainability", "Outreach", "Science"],
 	},
 	{
@@ -497,14 +495,14 @@ export const clubDirectory: Club[] = clubDirectorySeeds.map((club) => {
 	const locationData = roomLookup.get(club.locationRoom);
 	const baseLocation = formatClubLocation(locationData);
 	const contactEmail = advisor?.email ?? club.contactEmail ?? "";
-	const location = baseLocation || "Location coming soon";
+	const location = baseLocation || "No location found";
 
 	return {
 		...club,
-		advisor: advisor?.name ?? "Advisor coming soon",
+		advisor: advisor?.name ?? "No advisor found",
 		contactEmail: contactEmail || "info@wcusd.org",
 		advisorProfile: advisor,
-		location: location || "Location coming soon",
+		location: location || "No location found",
 		locationData,
 	};
 });
@@ -543,13 +541,18 @@ export const interestOptions = [
 	"Chess",
 ];
 
-export const createMainResources = (navigate: NavigateFunction) => [
+type SupportedRole = "student" | "mentor";
+
+export const createMainResources = (
+	navigate: NavigateFunction,
+	role: SupportedRole = "student"
+) => [
 	{
 		title: "Campus Map & Navigation",
 		description: "Find your classrooms, facilities, and nearest exits.",
 		icon: MapIcon,
 		buttonText: "View Campus Map",
-		onclick: () => navigate("/home/resources/map"),
+		onclick: () => navigate(`/${role}/home/resources/map/`),
 	},
 	{
 		title: "Student Handbook 2024-2025",
@@ -562,16 +565,18 @@ export const createMainResources = (navigate: NavigateFunction) => [
 			),
 	},
 	{
-		title: "Academic Course Catalog",
-		description:
-			"Detailed descriptions of all courses, prerequisites, and graduation requirements.",
-		icon: BookOpen,
-		buttonText: "Browse Courses",
-		onclick: () => alert("Course catalog coming soon!"),
+		title: "Elective Course List",
+		description: "Explore STEM, arts, and leadership electives that fit your schedule.",
+		icon: Sparkles,
+		buttonText: "Explore Electives",
+		onclick: () => navigate(`/${role}/home/resources/electives/`),
 	},
 ];
 
-export const createHelpAndSupport = (navigate: NavigateFunction) => [
+export const createHelpAndSupport = (
+	navigate: NavigateFunction,
+	role: SupportedRole = "student"
+) => [
 	{
 		title: "Meet the Staff Directory",
 		description: "Contact information for teachers, counselors, and administration.",
@@ -580,18 +585,18 @@ export const createHelpAndSupport = (navigate: NavigateFunction) => [
 		onclick: () => window.open("https://hms.wcusd.org/directory"),
 	},
 	{
-		title: "Frequently Asked Questions (FAQ)",
-		description: "Quick answers to common questions about the school year and platform.",
-		icon: Info,
-		buttonText: "Go to FAQ",
-		onclick: () => alert("FAQ page coming soon!"),
+		title: "Calendar & Bell Schedule",
+		description: "Download the district calendar and daily bell schedule PDF.",
+		icon: CalendarDays,
+		buttonText: "View Calendar PDF",
+		onclick: () => window.open("/calendar-bell-schedule.pdf", "_blank", "noopener,noreferrer"),
 	},
 	{
 		title: "Platform Settings & Help",
 		description: "Manage your profile, notifications, and app preferences.",
 		icon: Settings,
 		buttonText: "Manage Settings",
-		onclick: () => navigate("/home/settings/"),
+		onclick: () => navigate(`/${role}/home/settings/`),
 	},
 ];
 

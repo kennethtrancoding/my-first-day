@@ -42,7 +42,6 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 				</CardHeader>
 
 				<CardContent className="p-6 pt-0 grid gap-6">
-					{/* Show only schedule (shadcn Checkbox) */}
 					<div className="flex items-center gap-2 select-none">
 						<Checkbox
 							id="show-schedule-only"
@@ -54,7 +53,6 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 						</Label>
 					</div>
 
-					{/* Room Types filter list */}
 					<div>
 						<div className="text-sm font-medium text-foreground mb-2">Room Types</div>
 
@@ -99,7 +97,6 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 						</div>
 					</div>
 
-					{/* Legend */}
 					<div>
 						<div className="text-sm font-medium text-foreground mb-2">Legend</div>
 						<div className="flex items-center gap-2 mb-1">
@@ -114,19 +111,20 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 						</div>
 					</div>
 
-					{/* Class Schedule */}
 					<div>
 						<div className="text-sm font-semibold text-foreground mb-2">
 							Class Schedule
 						</div>
-						<ol className="grid gap-2 pl-5">
+						<ol className="flex flex-col gap-3">
 							{scheduleDetail.map((s) => (
 								<li key={`${s.period}-${s.room}`} className="leading-tight">
-									<span className="font-medium">Period {s.period}:</span>{" "}
-									<span>{s.room}</span>
-									<div className="text-xs text-muted-foreground mt-1">
+									<div className="flex flex-row gap-2">
+										<span className="font-medium">Period {s.period}:</span>
+										<span>{s.room}</span>
+									</div>
+									<div className="flex text-xs text-muted-foreground mt-1 items-center gap-1">
 										<span
-											className="inline-block h-2.5 w-2.5 rounded-sm border mr-1 align-[2px]"
+											className="inline-block h-3 w-3 rounded-sm border mr-1 align-[2px]"
 											style={{
 												background: s.color,
 												borderColor: "rgba(0,0,0,0.2)",

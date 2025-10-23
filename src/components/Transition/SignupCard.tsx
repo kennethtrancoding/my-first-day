@@ -11,14 +11,35 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import GoogleSignInButton from "@/components/ui/googleSignIn";
 import { Link, useNavigate } from "react-router-dom";
-import { FormEvent, KeyboardEvent, useRef } from "react";
+import { FormEvent, KeyboardEvent, useRef, useState } from "react";
+import { registerAccount, findAccount } from "@/utils/auth";
 
 function SignupCard() {
 	const navigate = useNavigate();
 	const passwordRef = useRef<HTMLInputElement>(null);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [error, setError] = useState<string | null>(null);
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		const trimmedEmail = email.trim();
+
+		if (!trimmedEmail || !password) {
+			setError("Enter both email and password to continue.");
+			return;
+		}
+
+		const existing = findAccount(trimmedEmail);
+		if (existing && existing.password !== password) {
+			setError("An account with this email already exists with a different password.");
+			return;
+		}
+
+		registerAccount({ email: trimmedEmail, password });
+		setError(null);
+		setEmail("");
+		setPassword("");
 		navigate("/verification/");
 	}
 
@@ -55,6 +76,8 @@ function SignupCard() {
 								id="email"
 								type="email"
 								placeholder="m@example.com"
+								value={email}
+								onChange={(event) => setEmail(event.target.value)}
 								onKeyDown={handleEmailKeyDown}
 							/>
 						</div>
@@ -64,8 +87,11 @@ function SignupCard() {
 								id="password"
 								type="password"
 								ref={passwordRef}
+								value={password}
+								onChange={(event) => setPassword(event.target.value)}
 								onKeyDown={handlePasswordKeyDown}
 							/>
+							{error && <p className="text-sm text-destructive">{error}</p>}
 						</div>
 					</CardContent>
 					<CardFooter className="flex flex-col">

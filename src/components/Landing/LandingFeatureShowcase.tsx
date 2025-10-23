@@ -21,7 +21,7 @@ const features: FeatureConfig[] = [
 		description: "Check upcoming events, reminders, and quick shortcuts in seconds.",
 		icon: LayoutDashboard,
 		actionLabel: "See Dashboard",
-		href: "/home/",
+		href: "/student/home/",
 		gradient: "from-primary/35 via-primary/15 to-secondary/30",
 		backgroundPosition: "center top",
 		illustrationLabel:
@@ -33,7 +33,7 @@ const features: FeatureConfig[] = [
 		description: "Send a quick hello and get responses from staff or peer mentors.",
 		icon: MessageSquare,
 		actionLabel: "Open Messages",
-		href: "/home/messages/mentors-directory/",
+		href: "/student/home/messages/mentors-directory/",
 		gradient: "from-secondary/35 via-accent/25 to-primary/25",
 		backgroundPosition: "center",
 		illustrationLabel:
@@ -45,7 +45,7 @@ const features: FeatureConfig[] = [
 		description: "Tour hallways, labs, and hangout spots with the interactive map.",
 		icon: Map,
 		actionLabel: "View Map",
-		href: "/home/resources/map/",
+		href: "/student/home/resources/map/",
 		gradient: "from-accent/35 via-primary/20 to-secondary/20",
 		backgroundPosition: "center bottom",
 		illustrationLabel:

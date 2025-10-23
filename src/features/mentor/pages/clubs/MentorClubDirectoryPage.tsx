@@ -183,27 +183,13 @@ const MentorClubDirectoryPage = () => {
 											}}>
 											View details
 										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={(event) => {
-												event.stopPropagation();
-												const advisorId = club.advisorProfile?.id;
-												const target =
-													advisorId != null
-														? `/mentor/home/messages/${advisorId}/`
-														: "/mentor/home/messages/";
-												navigate(target);
-											}}>
-											Message advisor
-										</Button>
 									</CardFooter>
 								</Card>
 							))}
 						</div>
 					) : (
 						<div className="flex h-full items-center justify-center rounded-lg border border-dashed bg-muted/40 p-12 text-center">
-							<div>
+							<div
 								<h2 className="text-lg font-semibold">No clubs match those filters</h2>
 								<p className="mt-2 text-sm text-muted-foreground">
 									Try adjusting your search or selecting a different category to see

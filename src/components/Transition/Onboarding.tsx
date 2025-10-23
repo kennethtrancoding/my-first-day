@@ -585,7 +585,7 @@ function Onboarding() {
 								</button>
 								<button
 									className="text-sm text-muted-foreground hover:underline cursor-pointer"
-									onClick={() => (window.location.href = "/student/home/")}>
+									onClick={() => handleCompleteOnboarding("Student")}>
 									Skip &rarr;
 								</button>
 							</div>

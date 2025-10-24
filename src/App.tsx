@@ -40,10 +40,6 @@ const queryClient = new QueryClient();
 function App() {
 	return (
 		<>
-			<div className="bg-gray-200 text-center text-sm">
-				Demo version. Mock students are used; data is saved locally. Verification code is{" "}
-				<strong>218058</strong>.
-			</div>
 			<QueryClientProvider client={queryClient}>
 				<TooltipProvider>
 					<Sonner />

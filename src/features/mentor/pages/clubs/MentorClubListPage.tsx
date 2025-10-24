@@ -68,20 +68,6 @@ const MentorClubListPage = () => {
 									}}>
 									View details
 								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={(event) => {
-										event.stopPropagation();
-										const advisorId = club.advisorProfile?.id;
-										const target =
-											advisorId != null
-												? `/mentor/home/messages/${advisorId}/`
-												: "/mentor/home/messages/";
-										navigate(target);
-									}}>
-									Message advisor
-								</Button>
 							</CardFooter>
 						</Card>
 					))}

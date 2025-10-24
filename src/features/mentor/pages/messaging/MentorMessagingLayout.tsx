@@ -43,9 +43,42 @@ function MentorMessagingLayout() {
 		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
 		[currentEmail]
 	);
-	const isAuthorized = React.useMemo(
-		() => Boolean(currentEmail && account && account.role === "mentor"),
+	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
+	const mentorType = account?.profile?.mentorType ?? "student";
+	const shouldRedirectOnboarding = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "mentor" &&
+					account.wentThroughOnboarding !== true
+			),
 		[account, currentEmail]
+	);
+	const shouldRedirectHome = React.useMemo(
+		() => !currentEmail || !account || account.role !== "mentor",
+		[account, currentEmail]
+	);
+	const shouldRedirectTeacher = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "mentor" &&
+					account.profile?.mentorType === "teacher"
+			),
+		[account, currentEmail]
+	);
+	const isAuthorized = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "mentor" &&
+					hasCompletedOnboarding &&
+					mentorType !== "teacher"
+			),
+		[account, currentEmail, hasCompletedOnboarding, mentorType]
 	);
 
 	const storageIdentity = currentEmail ?? "anonymous-mentor";
@@ -85,10 +118,26 @@ function MentorMessagingLayout() {
 	const { id: routeId } = useParams<{ id?: string }>();
 
 	React.useEffect(() => {
-		if (!isAuthorized) {
+		if (shouldRedirectOnboarding) {
+			navigate("/onboarding/", { replace: true });
+			return;
+		}
+
+		if (shouldRedirectTeacher) {
+			navigate("/teacher/home/", { replace: true });
+			return;
+		}
+
+		if (!isAuthorized || shouldRedirectHome) {
 			navigate("/", { replace: true });
 		}
-	}, [isAuthorized, navigate]);
+	}, [
+		isAuthorized,
+		navigate,
+		shouldRedirectHome,
+		shouldRedirectOnboarding,
+		shouldRedirectTeacher,
+	]);
 
 	if (!isAuthorized) {
 		return null;

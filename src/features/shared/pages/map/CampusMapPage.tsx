@@ -6,11 +6,12 @@ import { buildingCoords } from "./buildingCoords";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import OverlayPanel from "@/components/ui/mapOverlayPanel";
+import OverlayPanel from "@/components/ui/studentMentorMapOverlayPanel";
 import { MAP_LABEL_TYPE_COLORS } from "@/constants";
 import { mentors } from "@/people";
 import type { Person } from "@/people";
 import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { useStoredState } from "@/hooks/useStoredState";
 const DefaultIcon = L.icon({
 	iconUrl,
 	shadowUrl: iconShadow,
@@ -55,10 +56,20 @@ export default function CampusMap() {
 		const schedule = account.profile.schedule || [];
 		return { account, schedule, currentEmail };
 	}, []).schedule;
+	const normalizedSchedule = useMemo(
+		() =>
+			Array.isArray(schedule)
+				? schedule.map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+				: [],
+		[schedule]
+	);
 
 	function getPeriodForRoom(roomName: string) {
-		const idx = schedule.indexOf(roomName);
-		return idx >= 0 ? idx + 1 : undefined;
+		const normalizedName = normalize(roomName);
+		const idx = normalizedSchedule.findIndex(
+			(entry) => normalize(entry) === normalizedName && normalizedName.length > 0
+		);
+		return idx >= 0 ? idx : undefined;
 	}
 
 	const peopleByRoom = useMemo<TeacherRoomType>(() => {
@@ -75,7 +86,7 @@ export default function CampusMap() {
 		const set = new Set<string>();
 		buildingCoords.forEach((b) => set.add(b.type ?? "Unknown"));
 		return Array.from(set).sort();
-	}, []);
+	}, [buildingCoords]);
 
 	const [selectedTypes, setSelectedTypes] = useState<Set<string>>(() => new Set(allTypes));
 	const [showScheduleOnly, setShowScheduleOnly] = useState(false);
@@ -108,7 +119,7 @@ export default function CampusMap() {
 			const onSchedule = isOnSchedule(b.room);
 			return typeOk && (!showScheduleOnly || onSchedule);
 		});
-	}, [selectedTypes, showScheduleOnly, isOnSchedule]);
+	}, [buildingCoords, selectedTypes, showScheduleOnly, isOnSchedule]);
 
 	useEffect(() => {
 		if (!selectedRoomDetail) return;
@@ -121,12 +132,15 @@ export default function CampusMap() {
 	}, [visibleRooms, selectedRoomDetail]);
 
 	const scheduleDetail = useMemo(() => {
-		return schedule
-			.map((roomName, i) => {
-				const normalizedRoom = normalize(roomName);
+		return normalizedSchedule
+			.map((trimmedRoom, index) => {
+				if (!trimmedRoom) {
+					return null;
+				}
+				const normalizedRoom = normalize(trimmedRoom);
 				const found = buildingCoords.find((b) => normalize(b.room) === normalizedRoom);
 				const person = peopleByRoom[normalizedRoom];
-				const period = getPeriodForRoom(roomName) ?? i + 1;
+				const period = getPeriodForRoom(trimmedRoom) ?? index;
 				const typeLabel = person
 					? person.type === "teacher"
 						? "Teacher"
@@ -134,15 +148,19 @@ export default function CampusMap() {
 					: found?.type ?? "Unknown";
 				return {
 					period,
-					room: roomName,
+					room: trimmedRoom,
 					type: typeLabel,
 					department: person?.department,
 					teacher: person?.name,
 					color: getTypeColor(found?.type),
 				};
 			})
+			.filter(
+				(item): item is NonNullable<typeof item> =>
+					item != null && item.room.trim().length > 0
+			)
 			.sort((a, b) => a.period - b.period);
-	}, [peopleByRoom, getTypeColor]);
+	}, [normalizedSchedule, buildingCoords, peopleByRoom, getTypeColor, getPeriodForRoom]);
 
 	return (
 		<>
@@ -194,7 +212,7 @@ export default function CampusMap() {
 										const r1 = normalize(b.room);
 										return e1 === r1;
 									});
-									const period = idx >= 0 ? idx + 1 : undefined;
+									const period = idx >= 0 ? idx : undefined;
 
 									const teacher = peopleByRoom[normalize(b.room)];
 									const popupContent = `

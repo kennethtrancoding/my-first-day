@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +13,7 @@ import {
 	User,
 	LogOut,
 	BookOpen,
+	CalendarDays,
 	Shirt,
 	ArrowRight,
 	Users,
@@ -25,7 +27,7 @@ import { useStoredState } from "@/hooks/useStoredState";
 import { getCurrentEmail, updateAccount, logout, findAccount } from "@/utils/auth";
 
 type SaveState = "idle" | "saving" | "saved";
-type FieldKey = "name" | "interests" | "clothingSize" | "bio" | "notifications";
+type FieldKey = "name" | "interests" | "clothingSize" | "bio" | "schedule" | "notifications";
 
 interface FieldStatusMap {
 	[field: string]: SaveState;
@@ -132,6 +134,18 @@ function StudentSettingsPage() {
 		`${storagePrefix}:bio`,
 		() => account?.profile?.bio ?? ""
 	);
+	const [schedule, setSchedule] = useStoredState<string[]>(`${storagePrefix}:schedule`, () => {
+		const baseSchedule = Array.isArray(account?.profile?.schedule)
+			? [...(account?.profile?.schedule ?? [])]
+			: [];
+		while (baseSchedule.length < 7) {
+			baseSchedule.push("");
+		}
+		return baseSchedule.slice(0, 7);
+	});
+	const scheduleInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+	const [activePeriod, setActivePeriod] = React.useState<number | null>(null);
+	const [roomSearch, setRoomSearch] = React.useState<string[]>(() => [...schedule]);
 
 	const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useStoredState<boolean>(
 		`${storagePrefix}:emailNotificationsEnabled`,
@@ -143,11 +157,19 @@ function StudentSettingsPage() {
 		}
 	);
 
+	const roomEntries = buildingCoords;
+	const gradeNumber = React.useMemo(() => {
+		const gradeValue = account?.profile?.grade ?? "";
+		const parsed = Number.parseInt(gradeValue, 10);
+		return Number.isNaN(parsed) ? null : parsed;
+	}, [account]);
+
 	const [fieldStatus, setFieldStatus] = React.useState<FieldStatusMap>({
 		name: "idle",
 		interests: "idle",
 		clothingSize: "idle",
 		bio: "idle",
+		schedule: "idle",
 		notifications: "idle",
 	});
 
@@ -171,6 +193,30 @@ function StudentSettingsPage() {
 				.filter(Boolean),
 		[selectedInterests]
 	);
+	React.useEffect(() => {
+		setRoomSearch((prev) => {
+			if (
+				prev.length !== schedule.length ||
+				prev.some((value, index) => value !== schedule[index])
+			) {
+				return [...schedule];
+			}
+			return prev;
+		});
+	}, [schedule]);
+
+	function handleScheduleChange(periodIndex: number, room: string) {
+		setSchedule((prev) => {
+			const next = [...prev];
+			next[periodIndex] = room;
+			return next;
+		});
+		setRoomSearch((prev) => {
+			const next = [...prev];
+			next[periodIndex] = room;
+			return next;
+		});
+	}
 
 	function handleSavePreferences(field: FieldKey) {
 		if (field === "name") {
@@ -215,6 +261,21 @@ function StudentSettingsPage() {
 						},
 					});
 					break;
+				case "schedule": {
+					const normalizedSchedule = schedule.map((entry) => entry.trim());
+					while (normalizedSchedule.length < 7) {
+						normalizedSchedule.push("");
+					}
+					const trimmedSchedule = normalizedSchedule.slice(0, 7);
+					updateAccount(currentEmail, {
+						profile: {
+							schedule: trimmedSchedule,
+						},
+					});
+					setSchedule(trimmedSchedule);
+					setRoomSearch(trimmedSchedule);
+					break;
+				}
 				case "notifications":
 					updateAccount(currentEmail, {
 						settings: {
@@ -363,6 +424,202 @@ function StudentSettingsPage() {
 					</TabsContent>
 
 					<TabsContent value="preferences" className="space-y-6">
+						<Card>
+							<CardHeader>
+								<CardTitle className="flex items-center gap-2">
+									<CalendarDays className="h-5 w-5 text-primary" />
+									Class Schedule
+								</CardTitle>
+								<CardDescription>
+									Add the rooms or course names for each period so mentors can
+									help you find them faster.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="grid gap-4">
+									{schedule.map((_, index) => {
+										const normalizedQuery =
+											roomSearch[index]?.trim().toLowerCase() ?? "";
+
+										const filteredRooms = roomEntries.filter((entry) => {
+											if (!entry.scheduleSubject) return false;
+
+											const gradesByPeriod = entry.gradeLevel;
+											if (gradesByPeriod) {
+												const gradesForThisPeriod = gradesByPeriod[index];
+
+												if (
+													!gradesForThisPeriod ||
+													gradesForThisPeriod.length === 0
+												) {
+													return false;
+												}
+
+												if (
+													gradeNumber != null &&
+													!gradesForThisPeriod.includes(gradeNumber)
+												) {
+													return false;
+												}
+											}
+
+											if (normalizedQuery === "") {
+												return true;
+											}
+
+											const subjectMatch = entry.scheduleSubject
+												.toLowerCase()
+												.includes(normalizedQuery);
+											const roomMatch = entry.room
+												.toLowerCase()
+												.includes(normalizedQuery);
+
+											return subjectMatch || roomMatch;
+										});
+
+										const noResultsMessage =
+											gradeNumber != null
+												? "No rooms match your grade for this period."
+												: normalizedQuery
+												? "No rooms match your search."
+												: "No rooms available for this period.";
+
+										return (
+											<div className="flex items-center gap-4" key={index}>
+												<Label className="w-20 text-right font-medium text-sm">
+													Period {index}
+												</Label>
+												<div className="relative flex-1">
+													<Input
+														id={`schedule-period-${index}`}
+														type="text"
+														value={roomSearch[index] ?? ""}
+														onChange={(event) => {
+															const value = event.target.value;
+															setRoomSearch((prev) => {
+																const next = [...prev];
+																next[index] = value;
+																return next;
+															});
+															setSchedule((prev) => {
+																const next = [...prev];
+																next[index] = value;
+																return next;
+															});
+														}}
+														onFocus={() => setActivePeriod(index)}
+														onBlur={() =>
+															setTimeout(() => {
+																setActivePeriod((prev) =>
+																	prev === index ? null : prev
+																);
+															}, 120)
+														}
+														placeholder="Search for a room"
+														autoComplete="off"
+														className="flex-grow"
+														ref={(node) => {
+															scheduleInputRefs.current[index] = node;
+														}}
+														onKeyDown={(event) => {
+															if (event.key !== "Enter") return;
+
+															event.preventDefault();
+															const nextIndex = index + 1;
+															const nextInput =
+																scheduleInputRefs.current[
+																	nextIndex
+																];
+
+															if (nextInput) {
+																nextInput.focus();
+															}
+														}}
+													/>
+													{activePeriod === index && (
+														<div className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-md border border-border bg-card shadow-xl">
+															<ul className="max-h-48 overflow-y-auto py-1">
+																{filteredRooms.map((entry) => {
+																	const uniqueGrades =
+																		entry.gradeLevel
+																			? Array.from(
+																					new Set(
+																						Object.values(
+																							entry.gradeLevel
+																						)
+																							.flat()
+																							.map(
+																								(
+																									gradeValue
+																								) =>
+																									Number(
+																										gradeValue
+																									)
+																							)
+																					)
+																			  ).sort(
+																					(a, b) => a - b
+																			  )
+																			: [];
+																	const subjectLabel =
+																		entry.scheduleSubject ??
+																		"General Studies";
+																	const gradeLabel =
+																		uniqueGrades.length
+																			? `Grades ${uniqueGrades.join(
+																					", "
+																			  )}`
+																			: null;
+
+																	return (
+																		<li
+																			key={entry.room}
+																			className="group px-3 py-2 text-sm transition-colors hover:bg-primary hover:text-accent-foreground cursor-pointer"
+																			onMouseDown={(
+																				event
+																			) => {
+																				event.preventDefault();
+																				handleScheduleChange(
+																					index,
+																					entry.room
+																				);
+																				setActivePeriod(
+																					null
+																				);
+																			}}>
+																			<div className="font-medium">
+																				{entry.room}
+																			</div>
+																			<div className="text-xs text-muted-foreground group-hover:text-accent-foreground/80">
+																				{subjectLabel}
+																				{gradeLabel
+																					? ` · ${gradeLabel}`
+																					: ""}
+																			</div>
+																		</li>
+																	);
+																})}
+																{filteredRooms.length === 0 && (
+																	<li className="px-3 py-2 text-sm text-muted-foreground">
+																		{noResultsMessage}
+																	</li>
+																)}
+															</ul>
+														</div>
+													)}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+								<SaveButton
+									state={fieldStatus.schedule}
+									onClick={() => handleSavePreferences("schedule")}
+									idleText="Save Schedule"
+								/>
+							</CardContent>
+						</Card>
+
 						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">

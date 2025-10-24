@@ -44,9 +44,27 @@ function StudentMessagingLayout() {
 		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
 		[currentEmail]
 	);
-	const isAuthorized = React.useMemo(
-		() => Boolean(currentEmail && account && account.role === "student"),
+	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
+	const shouldRedirectOnboarding = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "student" &&
+					account.wentThroughOnboarding !== true
+			),
 		[account, currentEmail]
+	);
+	const shouldRedirectHome = React.useMemo(
+		() => !currentEmail || !account || account.role !== "student",
+		[account, currentEmail]
+	);
+	const isAuthorized = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail && account && account.role === "student" && hasCompletedOnboarding
+			),
+		[account, currentEmail, hasCompletedOnboarding]
 	);
 
 	const storageIdentity = currentEmail ?? "anonymous-student";
@@ -86,10 +104,15 @@ function StudentMessagingLayout() {
 	const { id: routeId } = useParams<{ id?: string }>();
 
 	React.useEffect(() => {
-		if (!isAuthorized) {
+		if (shouldRedirectOnboarding) {
+			navigate("/onboarding/", { replace: true });
+			return;
+		}
+
+		if (!isAuthorized || shouldRedirectHome) {
 			navigate("/", { replace: true });
 		}
-	}, [isAuthorized, navigate]);
+	}, [isAuthorized, navigate, shouldRedirectHome, shouldRedirectOnboarding]);
 
 	if (!isAuthorized) {
 		return null;

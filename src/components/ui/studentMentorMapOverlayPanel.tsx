@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -112,31 +111,39 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 					</div>
 
 					<div>
-						<div className="text-sm font-semibold text-foreground mb-2">
-							Class Schedule
-						</div>
-						<ol className="flex flex-col gap-3">
-							{scheduleDetail.map((s) => (
-								<li key={`${s.period}-${s.room}`} className="leading-tight">
-									<div className="flex flex-row gap-2">
-										<span className="font-medium">Period {s.period}:</span>
-										<span>{s.room}</span>
-									</div>
-									<div className="flex text-xs text-muted-foreground mt-1 items-center gap-1">
-										<span
-											className="inline-block h-3 w-3 rounded-sm border mr-1 align-[2px]"
-											style={{
-												background: s.color,
-												borderColor: "rgba(0,0,0,0.2)",
-											}}
-										/>
-										{s.type}
-										{s.department ? ` • ${s.department}` : ""}
-										{s.teacher ? ` • ${s.teacher}` : ""}
-									</div>
-								</li>
-							))}
-						</ol>
+						{scheduleDetail.length === 0 ? (
+							<div className="text-sm text-muted-foreground">
+								No schedule information available.
+							</div>
+						) : (
+							<>
+								<div className="text-sm font-semibold text-foreground mb-2">
+									Class Schedule
+								</div>
+								<ol className="flex flex-col gap-3">
+									{scheduleDetail.map((s) => (
+										<li key={`${s.period}-${s.room}`} className="leading-tight">
+											<div className="flex flex-row gap-2">
+												<span className="font-medium">Period {s.period}:</span>
+												<span>{s.room}</span>
+											</div>
+											<div className="flex text-xs text-muted-foreground mt-1 items-center gap-1">
+												<span
+													className="inline-block h-3 w-3 rounded-sm border mr-1 align-[2px]"
+													style={{
+														background: s.color,
+														borderColor: "rgba(0,0,0,0.2)",
+													}}
+												/>
+												{s.type}
+												{s.department ? ` • ${s.department}` : ""}
+												{s.teacher ? ` • ${s.teacher}` : ""}
+											</div>
+										</li>
+									))}
+								</ol>
+							</>
+						)}
 					</div>
 				</CardContent>
 			</Card>

@@ -21,7 +21,9 @@ import {
 	setCurrentEmail,
 	clearPendingEmail,
 	updateAccount,
+	findAccount,
 } from "@/utils/auth";
+import { useStoredState } from "@/hooks/useStoredState";
 const SCHOOL_NAME = "Hollencrest Middle School";
 
 function Onboarding() {
@@ -33,6 +35,12 @@ function Onboarding() {
 		const current = getCurrentEmail();
 		return current || "guest";
 	}, []);
+	const account = React.useMemo(() => {
+		if (emailContext === "guest") {
+			return null;
+		}
+		return findAccount(emailContext) ?? null;
+	}, [emailContext]);
 
 	const [currentStep, setCurrentStep] = React.useState<number>(2);
 
@@ -57,8 +65,50 @@ function Onboarding() {
 	React.useEffect(() => {
 		setErrorMessage("");
 	}, [currentStep]);
+	React.useEffect(() => {
+		if (!account?.wentThroughOnboarding) {
+			return;
+		}
 
-	const roomEntries = React.useMemo(() => buildingCoords, []);
+		const destination = account.role === "mentor" ? "/mentor/home/" : "/student/home/";
+		navigate(destination, { replace: true });
+	}, [account, navigate]);
+	React.useEffect(() => {
+		if (!account) return;
+		const profile = account.profile ?? {};
+		setFirstName((prev) => (prev ? prev : profile.firstName ?? ""));
+		setLastName((prev) => (prev ? prev : profile.lastName ?? ""));
+		setGrade((prev) => (prev ? prev : profile.grade ?? ""));
+		setSelectedInterests((prev) => (prev.length > 0 ? prev : profile.interests ?? []));
+		setSchedule((prev) => {
+			if (prev.some((entry) => entry && entry.trim().length > 0)) {
+				return prev;
+			}
+			if (profile.schedule && profile.schedule.length > 0) {
+				const next = [...profile.schedule];
+				while (next.length < 7) {
+					next.push("");
+				}
+				return next.slice(0, 7);
+			}
+			return prev;
+		});
+		setRoomSearch((prev) => {
+			if (prev.some((entry) => entry && entry.trim().length > 0)) {
+				return prev;
+			}
+			if (profile.schedule && profile.schedule.length > 0) {
+				const next = [...profile.schedule];
+				while (next.length < 7) {
+					next.push("");
+				}
+				return next.slice(0, 7);
+			}
+			return prev;
+		});
+	}, [account]);
+
+	const roomEntries = buildingCoords;
 	const gradeNumber = React.useMemo(() => {
 		const parsed = Number.parseInt(grade, 10);
 		return Number.isNaN(parsed) ? null : parsed;
@@ -72,19 +122,26 @@ function Onboarding() {
 		setInterests(selectedInterests.join(", "));
 	}, [selectedInterests]);
 
-	function handleCompleteOnboarding(nextRole?: "Student" | "Mentor") {
+	function handleCompleteOnboarding(
+		nextRole?: "Student" | "Mentor",
+		options?: { schedule?: string[] }
+	) {
 		const resolvedRole = nextRole ?? (role === "Mentor" ? "Mentor" : "Student");
 		const normalizedRole = resolvedRole === "Mentor" ? "mentor" : "student";
+		const scheduleToPersist =
+			options?.schedule ??
+			schedule.map((entry) => (typeof entry === "string" ? entry.trim() : ""));
 
 		if (emailContext !== "guest") {
 			updateAccount(emailContext, {
 				role: normalizedRole,
+				wentThroughOnboarding: true,
 				profile: {
 					firstName,
 					lastName,
 					grade,
 					interests: selectedInterests,
-					schedule,
+					schedule: scheduleToPersist,
 				},
 			});
 			setCurrentEmail(emailContext);
@@ -106,16 +163,19 @@ function Onboarding() {
 			if (emailContext !== "guest") {
 				updateAccount(emailContext, {
 					role: "student",
-					profile: {
-						firstName,
-						lastName,
-					},
 				});
 			}
-			setCurrentStep(4);
-		} else {
-			handleCompleteOnboarding("Mentor");
+			setCurrentStep(3);
+			return;
 		}
+
+		if (emailContext !== "guest") {
+			updateAccount(emailContext, {
+				role: "mentor",
+			});
+		}
+
+		handleCompleteOnboarding("Mentor");
 	}
 
 	function handleStudentInfoSubmit() {
@@ -149,25 +209,36 @@ function Onboarding() {
 		if (firstName.trim() && lastName.trim()) {
 			if (emailContext !== "guest") {
 				updateAccount(emailContext, {
+					role: "student",
 					profile: {
 						firstName,
 						lastName,
 					},
 				});
 			}
-			setCurrentStep(3);
+			setCurrentStep(4);
 			setErrorMessage("");
 		} else {
 			setErrorMessage("Please enter your first and last name.");
 		}
 	}
 
-	function handleScheduleContinue() {
+	function handleScheduleContinue(skipped: boolean = false) {
+		if (skipped) {
+			const clearedSchedule = Array(7).fill("");
+			setSchedule(clearedSchedule);
+			setRoomSearch(clearedSchedule);
+			setErrorMessage("");
+			handleCompleteOnboarding("Student", { schedule: clearedSchedule });
+			return;
+		}
 		if (isScheduleComplete) {
 			setErrorMessage("");
 			handleCompleteOnboarding("Student");
 		} else {
-			setErrorMessage("Please enter your class schedule.");
+			setErrorMessage(
+				"Please enter your class schedule or press the skip button to continue."
+			);
 		}
 	}
 
@@ -192,18 +263,49 @@ function Onboarding() {
 	}
 
 	const renderCardContent = () => {
-		const errorNotice =
-			errorMessage && (
-				<p className="text-sm text-center text-destructive">{errorMessage}</p>
-			);
+		const errorNotice = errorMessage && (
+			<p className="text-sm text-center text-destructive">{errorMessage}</p>
+		);
 
 		switch (currentStep) {
 			case 1:
 				return <SignUp />;
-			case 2: {
+			case 2:
 				return (
 					<>
-						<CardHeader>
+						<CardHeader className="text-center">
+							<CardTitle>Choose your role</CardTitle>
+							<CardDescription>
+								Pick what best describes your role in My First Day.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="grid gap-4">
+							<Button
+								variant="default"
+								size="lg"
+								onClick={() => selectRole("Student")}>
+								I am a new student
+							</Button>
+							<Button
+								variant="outline"
+								size="lg"
+								onClick={() => selectRole("Mentor")}>
+								I am a peer member or staff personnel
+							</Button>
+						</CardContent>
+						<CardFooter className="flex justify-center">
+							<button
+								className="text-sm text-muted-foreground hover:underline cursor-pointer"
+								onClick={() => navigate("/verification/")}>
+								&larr; Back
+							</button>
+						</CardFooter>
+					</>
+				);
+			case 3: {
+				return (
+					<>
+						<CardHeader className="text-center">
 							<CardTitle>Enter your name</CardTitle>
 							<CardDescription>
 								Enter your full name so others can find you.
@@ -251,47 +353,13 @@ function Onboarding() {
 							{errorNotice}
 							<button
 								className="text-sm text-muted-foreground hover:underline cursor-pointer"
-								onClick={() => navigate("/verification/")}>
-								&larr; Back
-							</button>
-						</CardFooter>
-					</>
-				);
-			}
-			case 3:
-				return (
-					<>
-						<CardHeader className="text-center">
-							<CardTitle>
-								Tell us about yourself{firstName ? `, ${firstName}` : ""}!
-							</CardTitle>
-							<CardDescription>
-								Select your role to personalize your experience.
-							</CardDescription>
-						</CardHeader>
-						<CardContent className="grid gap-4">
-							<Button
-								variant="default"
-								size="lg"
-								onClick={() => selectRole("Student")}>
-								I am a new student
-							</Button>
-							<Button
-								variant="outline"
-								size="lg"
-								onClick={() => selectRole("Mentor")}>
-								I am a peer member or staff personnel
-							</Button>
-						</CardContent>
-						<CardFooter className="flex justify-center">
-							<button
-								className="text-sm text-muted-foreground hover:underline cursor-pointer"
 								onClick={() => setCurrentStep(2)}>
 								&larr; Back
 							</button>
 						</CardFooter>
 					</>
 				);
+			}
 			case 4:
 				return (
 					<>
@@ -308,7 +376,7 @@ function Onboarding() {
 								<Input
 									id="grade"
 									type="number"
-									placeholder="e.g., 7"
+									placeholder="7"
 									value={grade}
 									onChange={(e) => setGrade(e.target.value)}
 									min={6}
@@ -571,7 +639,9 @@ function Onboarding() {
 						<CardFooter className="w-full flex flex-col gap-2">
 							<Button
 								disabled={!isScheduleComplete}
-								onClick={handleScheduleContinue}
+								onClick={() => {
+									handleScheduleContinue(false);
+								}}
 								className="w-full">
 								Create Account
 							</Button>
@@ -585,7 +655,9 @@ function Onboarding() {
 								</button>
 								<button
 									className="text-sm text-muted-foreground hover:underline cursor-pointer"
-									onClick={() => (window.location.href = "/student/home/")}>
+									onClick={() => {
+										handleScheduleContinue(true);
+									}}>
 									Skip &rarr;
 								</button>
 							</div>
@@ -598,13 +670,9 @@ function Onboarding() {
 	};
 
 	return (
-		<div className="w-screen h-screen flex items-center justify-center backdrop-blur-[3px] bg-gradient-hero">
-			<Card className="w-full max-w-sm">
-				<div className="flex gap-3 justify-center items-center rounded-t-lg border-b border-border bg-muted/50 px-4 py-3 text-center text-sm font-semibold tracking-wide text-muted-foreground">
-					<Pin size={16} /> {SCHOOL_NAME}
-				</div>
-				{renderCardContent()}
-			</Card>
+		<div className="w-screen h-screen flex flex-col items-center justify-center backdrop-blur-[3px] bg-gradient-hero">
+			<div className="flex flex-row text-white items-center gap-2 mb-2">{SCHOOL_NAME}</div>
+			<Card className="w-full max-w-sm">{renderCardContent()}</Card>
 		</div>
 	);
 }

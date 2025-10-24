@@ -30,6 +30,10 @@ import MentorElectivesPage from "@/features/mentor/pages/resources/MentorElectiv
 import MentorSettingsPage from "@/features/mentor/pages/settings/MentorSettingsPage";
 import ResetPassword from "./features/shared/pages/Landing/ResetPassword";
 import NotFoundPage from "@/features/shared/pages/errors/NotFoundPage";
+import TeacherDashboardPage from "@/features/teacher/pages/dashboard/TeacherDashboardPage";
+import TeacherResourceManagerPage from "@/features/teacher/pages/resources/TeacherResourceManagerPage";
+import TeacherMapEditorPage from "@/features/teacher/pages/map/TeacherMapEditorPage";
+import TeacherMapCoordinatesEditor from "./features/teacher/pages/map/TeacherMapCoordinatesEditor";
 
 const queryClient = new QueryClient();
 
@@ -118,6 +122,17 @@ function App() {
 							/>
 							<Route path="/mentor/home/resources/map/" element={<CampusMapPage />} />
 							<Route path="/mentor/home/settings/" element={<MentorSettingsPage />} />
+							<Route path="/teacher/home/" element={<TeacherDashboardPage />} />
+							<Route
+								path="/teacher/home/resources/"
+								element={<TeacherResourceManagerPage />}
+							/>
+							<Route path="/teacher/home/map/" element={<TeacherMapEditorPage />} />
+							<Route
+								path="/teacher/home/mapCoordinates/"
+								element={<TeacherMapCoordinatesEditor />}
+							/>
+
 							<Route path="*" element={<NotFoundPage />} />
 						</Routes>
 					</BrowserRouter>

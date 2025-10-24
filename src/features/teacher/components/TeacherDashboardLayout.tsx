@@ -4,61 +4,75 @@ import { Button } from "@/components/ui/button";
 import { Bell, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import StudentDashboardSidebar from "./StudentDashboardSidebar";
-import { useNotifications } from "@/hooks/useNotifications";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { findAccount, getCurrentEmail } from "@/utils/auth";
+import TeacherDashboardSidebar from "./TeacherDashboardSidebar";
+import { useNotifications } from "@/hooks/useNotifications";
 
-interface StudentDashboardLayoutProps {
+interface TeacherDashboardLayoutProps {
 	activePage: string;
 	children: React.ReactNode;
 }
 
-function StudentDashboardLayout({ activePage, children }: StudentDashboardLayoutProps) {
+function TeacherDashboardLayout({ activePage, children }: TeacherDashboardLayoutProps) {
 	const navigate = useNavigate();
 	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
 	const account = React.useMemo(
 		() => (currentEmail ? findAccount(currentEmail) : null),
 		[currentEmail]
 	);
-
+	const mentorType = account?.profile?.mentorType ?? "student";
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const isAuthorized = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail && account && account.role === "student" && hasCompletedOnboarding
-			),
-		[account, currentEmail, hasCompletedOnboarding]
-	);
-	const shouldRedirectOnboarding = React.useMemo(
-		() =>
-			Boolean(
 				currentEmail &&
 					account &&
-					account.role === "student" &&
-					account.wentThroughOnboarding !== true
+					account.role === "mentor" &&
+					mentorType === "teacher" &&
+					hasCompletedOnboarding
 			),
-		[account, currentEmail]
-	);
-	const shouldRedirectHome = React.useMemo(
-		() => !currentEmail || !account || account.role !== "student",
-		[account, currentEmail]
+		[account, currentEmail, mentorType, hasCompletedOnboarding]
 	);
 
 	const [isNotificationOpen, setIsNotificationOpen] = React.useState(false);
-	const { notifications, unreadCount, markAllRead } = useNotifications("student");
+	const { notifications, unreadCount, markAllRead } = useNotifications("mentor");
 
 	React.useEffect(() => {
-		if (shouldRedirectOnboarding) {
+		if (!currentEmail || !account) {
+			navigate("/", { replace: true });
+			return;
+		}
+
+		if (!hasCompletedOnboarding) {
 			navigate("/onboarding/", { replace: true });
 			return;
 		}
 
-		if (shouldRedirectHome) {
-			navigate("/", { replace: true });
+		if (account.role !== "mentor") {
+			if (account.role === "student") {
+				navigate("/student/home/", { replace: true });
+			} else {
+				navigate("/", { replace: true });
+			}
+			return;
 		}
-	}, [navigate, shouldRedirectHome, shouldRedirectOnboarding]);
+
+		if (mentorType !== "teacher") {
+			navigate("/mentor/home/", { replace: true });
+		}
+	}, [account, currentEmail, hasCompletedOnboarding, mentorType, navigate]);
+
+	React.useEffect(() => {
+		if (isNotificationOpen) {
+			markAllRead();
+		}
+	}, [isNotificationOpen, markAllRead]);
+
+	if (!isAuthorized) {
+		return null;
+	}
 
 	function formatTimestamp(timestamp: number) {
 		try {
@@ -76,20 +90,10 @@ function StudentDashboardLayout({ activePage, children }: StudentDashboardLayout
 		return type.charAt(0).toUpperCase() + type.slice(1);
 	}
 
-	React.useEffect(() => {
-		if (isNotificationOpen) {
-			markAllRead();
-		}
-	}, [isNotificationOpen, markAllRead]);
-
-	if (!isAuthorized) {
-		return null;
-	}
-
 	return (
 		<SidebarProvider>
 			<div className="flex min-h-screen bg-background w-full">
-				<StudentDashboardSidebar activePage={activePage} />
+				<TeacherDashboardSidebar activePage={activePage} />
 
 				<main className="flex-1 p-8">
 					<nav className="flex justify-evenly items-center mb-6">
@@ -172,4 +176,4 @@ function StudentDashboardLayout({ activePage, children }: StudentDashboardLayout
 	);
 }
 
-export default StudentDashboardLayout;
+export default TeacherDashboardLayout;

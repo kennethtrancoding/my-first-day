@@ -29,7 +29,18 @@ function LoginCard() {
 		setFeedback(null);
 		setEmail("");
 		setPassword("");
-		const destination = account.role === "mentor" ? "/mentor/home/" : "/student/home/";
+		const hasCompletedOnboarding = account.wentThroughOnboarding === true;
+		let destination = "/onboarding/";
+
+		if (hasCompletedOnboarding) {
+			if (account.role === "mentor") {
+				const mentorType = account.profile?.mentorType ?? "student";
+				destination = mentorType === "teacher" ? "/teacher/home/" : "/mentor/home/";
+			} else {
+				destination = "/student/home/";
+			}
+		}
+
 		navigate(destination, { replace: true });
 	}
 

@@ -23,8 +23,41 @@ function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutPr
 		[currentEmail]
 	);
 
+	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
+	const mentorType = account?.profile?.mentorType ?? "student";
 	const isAuthorized = React.useMemo(
-		() => Boolean(currentEmail && account && account.role === "mentor"),
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "mentor" &&
+					hasCompletedOnboarding &&
+					mentorType !== "teacher"
+			),
+		[account, currentEmail, hasCompletedOnboarding, mentorType]
+	);
+	const shouldRedirectOnboarding = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "mentor" &&
+					account.wentThroughOnboarding !== true
+			),
+		[account, currentEmail]
+	);
+	const shouldRedirectHome = React.useMemo(
+		() => !currentEmail || !account || account.role !== "mentor",
+		[account, currentEmail]
+	);
+	const shouldRedirectTeacher = React.useMemo(
+		() =>
+			Boolean(
+				currentEmail &&
+					account &&
+					account.role === "mentor" &&
+					account.profile?.mentorType === "teacher"
+			),
 		[account, currentEmail]
 	);
 
@@ -32,10 +65,20 @@ function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutPr
 	const { notifications, unreadCount, markAllRead } = useNotifications("mentor");
 
 	React.useEffect(() => {
-		if (!isAuthorized) {
+		if (shouldRedirectOnboarding) {
+			navigate("/onboarding/", { replace: true });
+			return;
+		}
+
+		if (shouldRedirectTeacher) {
+			navigate("/teacher/home/", { replace: true });
+			return;
+		}
+
+		if (shouldRedirectHome) {
 			navigate("/", { replace: true });
 		}
-	}, [isAuthorized, navigate]);
+	}, [navigate, shouldRedirectHome, shouldRedirectOnboarding, shouldRedirectTeacher]);
 
 	function formatTimestamp(timestamp: number) {
 		try {

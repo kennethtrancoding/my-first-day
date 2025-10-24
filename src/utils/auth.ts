@@ -13,6 +13,7 @@ export interface AccountProfile {
 	bio?: string;
 	mentorBio?: string;
 	mentorOfficeHours?: string;
+	mentorType?: "teacher" | "student";
 }
 
 export interface AccountSettings {
@@ -31,6 +32,7 @@ export interface StoredAccount {
 	createdAt: string;
 	profile: AccountProfile;
 	settings: AccountSettings;
+	wentThroughOnboarding?: boolean;
 }
 
 const ACCOUNTS_KEY = "auth:accounts";
@@ -73,6 +75,7 @@ export function registerAccount(input: {
 		createdAt: input.createdAt ?? new Date().toISOString(),
 		profile: {},
 		settings: {},
+		wentThroughOnboarding: false,
 	};
 
 	accounts.push(account);

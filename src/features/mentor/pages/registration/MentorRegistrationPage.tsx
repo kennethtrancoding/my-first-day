@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail, updateAccount } from "@/utils/auth";
+import { getCurrentEmail, updateAccount, type AccountProfile } from "@/utils/auth";
 
 type MentorRole = "teacher" | "student";
 
@@ -31,10 +31,12 @@ const MentorRegistrationPage = () => {
 			}:onboarding`,
 		[currentEmail]
 	);
+
 	const [role, setRole] = useStoredState<MentorRole>(`${storagePrefix}:role`, "teacher");
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const navigate = useNavigate();
 
+	// Pull any onboarding name we may already have stored
 	const [onboardingFirstName] = useStoredState<string>(`${onboardingPrefix}:firstName`, "");
 	const [onboardingLastName] = useStoredState<string>(`${onboardingPrefix}:lastName`, "");
 	const onboardingFullName = React.useMemo(
@@ -46,14 +48,12 @@ const MentorRegistrationPage = () => {
 		[onboardingFirstName, onboardingLastName]
 	);
 
+	// Editable teacher name (pre-filled from onboarding if present)
 	const [teacherName, setTeacherName] = useStoredState<string>(
 		`${storagePrefix}:teacher:name`,
-		""
+		onboardingFullName
 	);
-	const [teacherEmail, setTeacherEmail] = useStoredState<string>(
-		`${storagePrefix}:teacher:email`,
-		""
-	);
+
 	const [teacherDepartment, setTeacherDepartment] = useStoredState<string>(
 		`${storagePrefix}:teacher:department`,
 		""
@@ -67,10 +67,6 @@ const MentorRegistrationPage = () => {
 		""
 	);
 
-	const [studentName, setStudentName] = useStoredState<string>(
-		`${storagePrefix}:student:name`,
-		""
-	);
 	const [studentEmail, setStudentEmail] = useStoredState<string>(
 		`${storagePrefix}:student:email`,
 		""
@@ -88,12 +84,53 @@ const MentorRegistrationPage = () => {
 	function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setIsSubmitting(true);
-		if (currentEmail !== "guest-mentor") {
-			updateAccount(currentEmail, { role: "mentor" });
+
+		// If teacher, prefer the edited teacherName; otherwise fall back to onboarding name
+		const normalizedFullName = (role === "teacher" ? teacherName : onboardingFullName).trim();
+		const [first, ...rest] = normalizedFullName.split(/\s+/);
+
+		const profileUpdates: AccountProfile = {
+			mentorType: role,
+		};
+
+		if (normalizedFullName) {
+			profileUpdates.displayName = normalizedFullName;
+			if (first) profileUpdates.firstName = first;
+			if (rest.length > 0) profileUpdates.lastName = rest.join(" ");
 		}
+
+		if (role === "teacher") {
+			if (teacherDepartment || teacherRoom) {
+				profileUpdates.bio =
+					`Department: ${teacherDepartment || "—"}` +
+					(teacherRoom ? `, Room: ${teacherRoom}` : "");
+			}
+			if (teacherFocus) {
+				// Using mentorOfficeHours to store focus, per existing schema
+				profileUpdates.mentorOfficeHours = teacherFocus;
+			}
+		} else {
+			if (studentGrade) profileUpdates.grade = studentGrade;
+			if (studentExperience || studentWhy) {
+				profileUpdates.mentorBio = [
+					studentExperience && `Experience: ${studentExperience}`,
+					studentWhy && `Why: ${studentWhy}`,
+				]
+					.filter(Boolean)
+					.join(" | ");
+			}
+		}
+
+		if (currentEmail !== "guest-mentor") {
+			updateAccount(currentEmail, {
+				role: "mentor",
+				profile: profileUpdates,
+			});
+		}
+
 		setTimeout(() => {
 			setIsSubmitting(false);
-			navigate("/mentor/home/");
+			navigate(role === "teacher" ? "/teacher/home/" : "/mentor/home/");
 		}, 900);
 	}
 
@@ -121,53 +158,31 @@ const MentorRegistrationPage = () => {
 										<Label htmlFor="teacher-name">Full Name</Label>
 										<Input
 											id="teacher-name"
-											placeholder="Ms. Rivera"
+											placeholder="Alex Johnson"
 											required
-											value={onboardingFullName || teacherName}
-											readOnly={Boolean(onboardingFullName)}
-											onChange={
-												onboardingFullName
-													? undefined
-													: (event) => setTeacherName(event.target.value)
-											}
-										/>
-									</div>
-									<div className="grid gap-2">
-										<Label htmlFor="teacher-email">School Email</Label>
-										<Input
-											id="teacher-email"
-											type="email"
-											placeholder="rivera@wcusd.org"
-											required
-											value={teacherEmail}
-											onChange={(event) =>
-												setTeacherEmail(event.target.value)
-											}
-										/>
-									</div>
-								</div>
-								<div className="grid gap-4 md:grid-cols-2">
-									<div className="grid gap-2">
-										<Label htmlFor="teacher-department">Department</Label>
-										<Input
-											id="teacher-department"
-											placeholder="Visual Arts"
-											required
-											value={teacherDepartment}
-											onChange={(event) =>
-												setTeacherDepartment(event.target.value)
-											}
+											value={teacherName}
+											onChange={(e) => setTeacherName(e.target.value)}
 										/>
 									</div>
 									<div className="grid gap-2">
 										<Label htmlFor="teacher-room">Room Number</Label>
 										<Input
 											id="teacher-room"
-											placeholder="Room 12"
+											placeholder="12"
 											value={teacherRoom}
-											onChange={(event) => setTeacherRoom(event.target.value)}
+											onChange={(e) => setTeacherRoom(e.target.value)}
 										/>
 									</div>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="teacher-department">Department</Label>
+									<Input
+										id="teacher-department"
+										placeholder="Visual Arts"
+										required
+										value={teacherDepartment}
+										onChange={(e) => setTeacherDepartment(e.target.value)}
+									/>
 								</div>
 								<div className="grid gap-2">
 									<Label htmlFor="teacher-focus">Mentorship Focus</Label>
@@ -176,42 +191,24 @@ const MentorRegistrationPage = () => {
 										placeholder="Robotics, coding, first-year transitions"
 										required
 										value={teacherFocus}
-										onChange={(event) => setTeacherFocus(event.target.value)}
+										onChange={(e) => setTeacherFocus(e.target.value)}
 									/>
 								</div>
 							</TabsContent>
 
 							<TabsContent value="student" className="space-y-6">
-								<div className="grid gap-4 md:grid-cols-2">
-									<div className="grid gap-2">
-										<Label htmlFor="student-name">Full Name</Label>
-										<Input
-											id="student-name"
-											placeholder="Jordan Lee"
-											required
-											value={onboardingFullName || studentName}
-											readOnly={Boolean(onboardingFullName)}
-											onChange={
-												onboardingFullName
-													? undefined
-													: (event) => setStudentName(event.target.value)
-											}
-										/>
-									</div>
-									<div className="grid gap-2">
-										<Label htmlFor="student-email">School Email</Label>
-										<Input
-											id="student-email"
-											type="email"
-											placeholder="leej@wcusd.net"
-											required
-											value={studentEmail}
-											onChange={(event) =>
-												setStudentEmail(event.target.value)
-											}
-										/>
-									</div>
+								<div className="grid gap-2">
+									<Label htmlFor="student-email">School Email</Label>
+									<Input
+										id="student-email"
+										type="email"
+										placeholder="leej@wcusd.net"
+										required
+										value={studentEmail}
+										onChange={(e) => setStudentEmail(e.target.value)}
+									/>
 								</div>
+
 								<div className="grid gap-4 md:grid-cols-2">
 									<div className="grid gap-2">
 										<Label htmlFor="student-grade">Grade</Label>
@@ -220,9 +217,7 @@ const MentorRegistrationPage = () => {
 											placeholder="8"
 											required
 											value={studentGrade}
-											onChange={(event) =>
-												setStudentGrade(event.target.value)
-											}
+											onChange={(e) => setStudentGrade(e.target.value)}
 										/>
 									</div>
 									<div className="grid gap-2">
@@ -232,9 +227,7 @@ const MentorRegistrationPage = () => {
 											placeholder="Clubs, electives, first week tips"
 											required
 											value={studentExperience}
-											onChange={(event) =>
-												setStudentExperience(event.target.value)
-											}
+											onChange={(e) => setStudentExperience(e.target.value)}
 										/>
 									</div>
 								</div>
@@ -246,7 +239,7 @@ const MentorRegistrationPage = () => {
 										className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[120px]"
 										placeholder="Share how you want to support incoming students."
 										value={studentWhy}
-										onChange={(event) => setStudentWhy(event.target.value)}
+										onChange={(e) => setStudentWhy(e.target.value)}
 									/>
 								</div>
 							</TabsContent>
@@ -262,10 +255,6 @@ const MentorRegistrationPage = () => {
 										"Submit Application"
 									)}
 								</Button>
-								<p className="text-xs text-muted-foreground text-center">
-									We'll review your application within one school day and send
-									next steps to your email.
-								</p>
 							</CardFooter>
 						</form>
 					</Tabs>

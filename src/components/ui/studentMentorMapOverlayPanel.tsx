@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ArrowLeft } from "lucide-react";
 
 export type ScheduleItem = {
 	period: number;
@@ -19,6 +20,7 @@ export interface OverlayPanelProps {
 	onChangeShowScheduleOnly: (value: boolean) => void;
 	scheduleDetail: ScheduleItem[];
 	getTypeColor: (type?: string) => string;
+	onBack?: () => void;
 }
 
 export default function OverlayPanel(props: OverlayPanelProps) {
@@ -30,13 +32,24 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 		onChangeShowScheduleOnly,
 		scheduleDetail,
 		getTypeColor,
+		onBack,
 	} = props;
 
 	return (
 		<div className="fixed top-4 left-4 z-[1000] w-[22rem] max-w-[90vw]">
 			<Card className="rounded-lg border bg-card text-card-foreground shadow-sm">
 				<CardHeader>
-					<CardTitle>Map Options</CardTitle>
+					<div className="flex items-center gap-3">
+						{onBack && (
+							<button
+								type="button"
+								onClick={onBack}
+								className="px-1 py-1 rounded-md border hover:bg-accent">
+								<ArrowLeft size={16} />
+							</button>
+						)}
+						<CardTitle>Map Options</CardTitle>
+					</div>
 					<CardDescription>Filter rooms and view your class schedule.</CardDescription>
 				</CardHeader>
 
@@ -124,7 +137,9 @@ export default function OverlayPanel(props: OverlayPanelProps) {
 									{scheduleDetail.map((s) => (
 										<li key={`${s.period}-${s.room}`} className="leading-tight">
 											<div className="flex flex-row gap-2">
-												<span className="font-medium">Period {s.period}:</span>
+												<span className="font-medium">
+													Period {s.period}:
+												</span>
 												<span>{s.room}</span>
 											</div>
 											<div className="flex text-xs text-muted-foreground mt-1 items-center gap-1">

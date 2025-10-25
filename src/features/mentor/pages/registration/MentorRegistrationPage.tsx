@@ -36,7 +36,6 @@ const MentorRegistrationPage = () => {
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const navigate = useNavigate();
 
-	// Pull any onboarding name we may already have stored
 	const [onboardingFirstName] = useStoredState<string>(`${onboardingPrefix}:firstName`, "");
 	const [onboardingLastName] = useStoredState<string>(`${onboardingPrefix}:lastName`, "");
 	const onboardingFullName = React.useMemo(
@@ -48,7 +47,6 @@ const MentorRegistrationPage = () => {
 		[onboardingFirstName, onboardingLastName]
 	);
 
-	// Editable teacher name (pre-filled from onboarding if present)
 	const [teacherName, setTeacherName] = useStoredState<string>(
 		`${storagePrefix}:teacher:name`,
 		onboardingFullName
@@ -85,7 +83,6 @@ const MentorRegistrationPage = () => {
 		event.preventDefault();
 		setIsSubmitting(true);
 
-		// If teacher, prefer the edited teacherName; otherwise fall back to onboarding name
 		const normalizedFullName = (role === "teacher" ? teacherName : onboardingFullName).trim();
 		const [first, ...rest] = normalizedFullName.split(/\s+/);
 
@@ -106,7 +103,6 @@ const MentorRegistrationPage = () => {
 					(teacherRoom ? `, Room: ${teacherRoom}` : "");
 			}
 			if (teacherFocus) {
-				// Using mentorOfficeHours to store focus, per existing schema
 				profileUpdates.mentorOfficeHours = teacherFocus;
 			}
 		} else {

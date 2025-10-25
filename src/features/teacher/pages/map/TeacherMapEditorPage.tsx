@@ -16,9 +16,9 @@ import { buildingCoords, type RoomData } from "@/features/shared/pages/map/build
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { loadMapRooms, saveMapRooms } from "@/utils/teacherData";
+import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-/* ----------------------------- Local Notes Store ----------------------------- */
-/** Optional: keep staff notes in their own simple store so RoomData doesn't change. */
 type NotesStore = Record<string, string>;
 
 const NOTES_KEY = "teacher:roomNotes";
@@ -28,7 +28,6 @@ function useRoomNotes() {
 	return { notesByRoom, setNotesByRoom, clearNotes };
 }
 
-/* --------------------------------- Draft type -------------------------------- */
 type Draft = {
 	type: string;
 	scheduleSubject: string;
@@ -42,21 +41,17 @@ const EMPTY_DRAFT: Draft = {
 };
 
 function TeacherMapEditorPage() {
-	/* ---------------------- Rooms are the permanent truth ---------------------- */
-	// Seed from buildingCoords on first load; then rooms live in localStorage
+	const navigate = useNavigate();
 	const [rooms, setRooms] = useStoredState<RoomData[]>("teacher:mapRooms", () =>
 		loadMapRooms(buildingCoords)
 	);
 
-	// Persist whenever rooms change
 	React.useEffect(() => {
 		saveMapRooms(rooms);
 	}, [rooms]);
 
-	// Staff notes live in a separate store
 	const { notesByRoom, setNotesByRoom, clearNotes } = useRoomNotes();
 
-	/* --------------------------------- Listing -------------------------------- */
 	const sortedRooms = React.useMemo(() => {
 		return [...rooms].sort((a, b) =>
 			a.room.localeCompare(b.room, undefined, { numeric: true, sensitivity: "base" })
@@ -92,10 +87,8 @@ function TeacherMapEditorPage() {
 		return rooms.find((room) => room.room === selectedRoomId) ?? null;
 	}, [rooms, selectedRoomId]);
 
-	// The “effective” room is just the saved room now (no overrides)
 	const effectiveRoom = selectedRoom;
 
-	// Re-hydrate draft whenever the selected room changes
 	React.useEffect(() => {
 		if (!selectedRoom) {
 			setDraft(EMPTY_DRAFT);
@@ -108,7 +101,6 @@ function TeacherMapEditorPage() {
 		});
 	}, [selectedRoom, notesByRoom]);
 
-	/* --------------------------------- Actions -------------------------------- */
 	function handleSave() {
 		if (!selectedRoom) return;
 
@@ -135,8 +127,6 @@ function TeacherMapEditorPage() {
 	}
 
 	function handleResetAll() {
-		// Reset rooms back to the seed data, and clear staff notes
-		saveMapRooms(buildingCoords.map((r) => ({ ...r })));
 		setRooms(buildingCoords.map((r) => ({ ...r })));
 		clearNotes();
 		setDraft(EMPTY_DRAFT);
@@ -289,6 +279,9 @@ function TeacherMapEditorPage() {
 					</Card>
 				)}
 			</div>
+			<Button className="mt-4" onClick={() => navigate("/teacher/home/map/coordinates/")}>
+				Edit room coordinates <ArrowRight size={16} className="ml-2" />
+			</Button>
 		</TeacherDashboardLayout>
 	);
 }

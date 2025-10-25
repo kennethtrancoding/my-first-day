@@ -53,12 +53,12 @@ export function findAccount(email: string) {
 }
 
 export function registerAccount(input: {
-	email: string;
-	password: string;
-	role?: AccountRole;
-	createdAt?: string;
+    email: string;
+    password: string;
+    role?: AccountRole;
+    createdAt?: string;
 }): StoredAccount | null {
-	const trimmedEmail = input.email.trim();
+    const trimmedEmail = input.email.trim().toLowerCase();
 	const accounts = getAccounts();
 	const existingIndex = accounts.findIndex(
 		(item) => item.email.toLowerCase() === trimmedEmail.toLowerCase()
@@ -94,7 +94,7 @@ export function authenticate(email: string, password: string) {
 		return null;
 	}
 
-	writeToStorage(CURRENT_EMAIL_KEY, account.email);
+    writeToStorage(CURRENT_EMAIL_KEY, account.email.toLowerCase());
 	return account;
 }
 
@@ -107,11 +107,11 @@ export function getCurrentEmail() {
 }
 
 export function setCurrentEmail(email: string) {
-	writeToStorage(CURRENT_EMAIL_KEY, email);
+    writeToStorage(CURRENT_EMAIL_KEY, email.trim().toLowerCase());
 }
 
 export function setPendingEmail(email: string) {
-	writeToStorage(PENDING_EMAIL_KEY, email);
+    writeToStorage(PENDING_EMAIL_KEY, email.trim().toLowerCase());
 }
 
 export function getPendingEmail() {

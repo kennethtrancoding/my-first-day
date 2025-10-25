@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polygon, useMap, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import L, { icon } from "leaflet";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
@@ -21,11 +21,16 @@ const DefaultIcon = L.icon({
 });
 (L.Marker.prototype as any).options.icon = DefaultIcon;
 
+const iconSize = 14;
 const vertexIcon = L.divIcon({
 	className: "vertex-handle leaflet-div-icon",
-	html: '<div style="width:12px;height:12px;border:2px solid #fff;box-shadow:0 0 0 2px #000;border-radius:2px;"></div>',
-	iconSize: [16, 16],
-	iconAnchor: [8, 8],
+	html: `<div style="
+		width:${iconSize}px;
+		height:${iconSize}px;
+		"></div>`,
+
+	iconSize: [iconSize, iconSize],
+	iconAnchor: [iconSize / 2, iconSize / 2],
 });
 
 type SelectedRoomDetail = {
@@ -60,14 +65,13 @@ function normalize(s: string | undefined) {
 export default function TeacherMapCoordinatesEditor() {
 	const mapRef = useRef<L.Map | null>(null);
 	const polyRefs = useRef<Record<string, L.Polygon>>({});
+	// Add marker refs to keep references to vertex markers so we can move them during polygon drag
+	const markerRefs = useRef<Record<string, (L.Marker | null)[]>>({});
 
-	// Rooms are now the permanent truth in localStorage.
-	// Seed from buildingCoords on first load.
 	const [rooms, setRooms] = useStoredState<RoomData[]>("teacher:mapRooms", () =>
 		loadMapRooms(buildingCoords)
 	);
 
-	// Persist whenever rooms change
 	useEffect(() => {
 		saveMapRooms(rooms);
 	}, [rooms]);
@@ -104,11 +108,9 @@ export default function TeacherMapCoordinatesEditor() {
 		});
 	}, [rooms, selectedTypes]);
 
-	// stable key that changes when coordinates change
 	const coordsKey = (roomLabel: string, coords: L.LatLngTuple[]) =>
 		`${roomLabel}-${coords.map((c) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`).join(";")}`;
 
-	// Imperative visual update while dragging (smooth morph)
 	function updatePolygonVisual(roomLabel: string, idx: number, lat: number, lng: number) {
 		const poly = polyRefs.current[roomLabel];
 		if (!poly) return;
@@ -121,10 +123,39 @@ export default function TeacherMapCoordinatesEditor() {
 		clone[idx] = L.latLng(lat, lng);
 		poly.setLatLngs([clone]);
 	}
+	function dot(v1: L.Point, v2: L.Point) {
+		return v1.x * v2.x + v1.y * v2.y;
+	}
+	function nearestSegment(room: RoomData, p: L.LatLng, map: L.Map) {
+		let best = { idx: -1, dist: Infinity, point: p } as {
+			idx: number;
+			dist: number;
+			point: L.LatLng;
+		};
+		const project = (ll: L.LatLng) => map.latLngToLayerPoint(ll);
+		const unproject = (pt: L.Point) => map.layerPointToLatLng(pt);
+		const coords = room.coordinates;
+		for (let i = 0; i < coords.length; i++) {
+			const a = L.latLng(coords[i][0], coords[i][1]);
+			const b = L.latLng(
+				coords[(i + 1) % coords.length][0],
+				coords[(i + 1) % coords.length][1]
+			);
+			const P = project(p),
+				A = project(a),
+				B = project(b);
+			const AB = B.subtract(A);
+			const denom = AB.x * AB.x + AB.y * AB.y || 1;
+			const t = Math.max(0, Math.min(1, dot(P.subtract(A), AB) / denom));
+			const proj = new L.Point(A.x + AB.x * t, A.y + AB.y * t);
+			const projLL = unproject(proj);
+			const d = p.distanceTo(projLL);
+			if (d < best.dist) best = { idx: i, dist: d, point: projLL };
+		}
+		return best;
+	}
 
-	// Commit a vertex move to the permanent rooms array
 	function updateVertex(roomKey: any, idx: number, coord: { lat: number; lng: number }) {
-		// Resolve label (we may receive plain label or coordsKey)
 		const resolveLabel = (): string | undefined => {
 			if (typeof roomKey === "string") {
 				if (rooms.some((r) => r.room === roomKey)) return roomKey;
@@ -155,12 +186,6 @@ export default function TeacherMapCoordinatesEditor() {
 		});
 	}
 
-	// Map instance capture
-	const whenCreated = (map: L.Map) => {
-		mapRef.current = map;
-	};
-
-	// Add a room near map center with a small square; persist to rooms
 	const onAddRoom = useCallback(() => {
 		const roomId = (window.prompt("New room label (e.g., A123):") || "").trim();
 		if (!roomId) return;
@@ -194,12 +219,13 @@ export default function TeacherMapCoordinatesEditor() {
 		setSelectedRoom(roomId);
 	}, [rooms]);
 
-	// Permanently delete the selected room from the truth store
 	const onRemoveRoom = useCallback(() => {
 		if (!selectedRoom) {
 			window.alert("Select a room first (click its polygon).");
 			return;
 		}
+		// cleanup marker refs for the removed room
+		delete markerRefs.current[selectedRoom];
 		setRooms((prev) => prev.filter((r) => r.room !== selectedRoom));
 		setSelectedRoom(null);
 	}, [selectedRoom]);
@@ -224,6 +250,7 @@ export default function TeacherMapCoordinatesEditor() {
 				onAddRoom={onAddRoom}
 				onRemoveRoom={onRemoveRoom}
 				selectedRoom={selectedRoom}
+				onBack={() => history.back()}
 			/>
 
 			<MapContainer
@@ -232,6 +259,8 @@ export default function TeacherMapCoordinatesEditor() {
 				maxZoom={22}
 				scrollWheelZoom
 				zoomControl={false}
+				doubleClickZoom={false}
+				boxZoom={false}
 				style={{ height: "100vh", width: "100%" }}>
 				<ZoomControlBottomLeft />
 
@@ -281,6 +310,102 @@ export default function TeacherMapCoordinatesEditor() {
 											.bindPopup(popupContent, { maxWidth: 260 })
 											.openPopup((e as any).latlng);
 									},
+
+									mousedown: (e) => {
+										if (!e.originalEvent.shiftKey) return;
+										e.originalEvent.preventDefault();
+
+										const map = e.target._map;
+										const start = map.latLngToLayerPoint(e.latlng);
+
+										const poly = polyRefs.current[b.room];
+										if (!poly) return;
+
+										let latlngs = poly.getLatLngs();
+										const ring = Array.isArray(latlngs[0])
+											? (latlngs[0] as L.LatLng[])
+											: (latlngs as L.LatLng[]);
+										if (!ring?.length) return;
+
+										const originalPoints = ring.map((pt) =>
+											map.latLngToLayerPoint(pt)
+										);
+
+										const moveHandler = (moveEvent: L.LeafletMouseEvent) => {
+											const currentPosition = map.latLngToLayerPoint(
+												moveEvent.latlng
+											);
+											const delta = currentPosition.subtract(start);
+
+											const moved = originalPoints.map((pt) =>
+												map.layerPointToLatLng(pt.add(delta))
+											);
+
+											poly.setLatLngs([moved]);
+
+											const markersForRoom = markerRefs.current[b.room] || [];
+											for (let j = 0; j < moved.length; j++) {
+												const m = markersForRoom[j];
+												if (m && (m as any).setLatLng) {
+													(m as any).setLatLng(moved[j]);
+												}
+											}
+
+											latlngs = moved;
+										};
+
+										const upHandler = (upEvent: L.LeafletMouseEvent) => {
+											map.off("mousemove", moveHandler);
+											map.off("mouseup", upHandler);
+
+											const currentPosition = map.latLngToLayerPoint(
+												upEvent.latlng
+											);
+											const delta = currentPosition.subtract(start);
+
+											setRooms((prev) => {
+												const i = prev.findIndex((r) => r.room === b.room);
+												if (i === -1) return prev;
+												const next = prev.slice();
+												const coords = originalPoints.map((pt) => {
+													const ll = map.layerPointToLatLng(
+														pt.add(delta)
+													);
+													return [ll.lat, ll.lng] as [number, number];
+												});
+												next[i] = { ...next[i], coordinates: coords };
+												return next;
+											});
+										};
+
+										map.on("mousemove", moveHandler);
+										map.on("mouseup", upHandler);
+									},
+
+									dblclick: (e: any) => {
+										nearestSegment(b, e.latlng, e.target._map);
+										const { idx: bestIdx, point: bestPoint } = nearestSegment(
+											b,
+											e.latlng,
+											e.target._map
+										);
+										if (bestIdx >= 0) {
+											setRooms((prev) => {
+												const i = prev.findIndex((r) => r.room === b.room);
+												if (i === -1) return prev;
+												const next = prev.slice();
+												const coords = next[i].coordinates.map(
+													(c) => [...c] as [number, number]
+												);
+												coords.splice(bestIdx + 1, 0, [
+													bestPoint.lat,
+													bestPoint.lng,
+												]);
+												next[i] = { ...next[i], coordinates: coords };
+												return next;
+											});
+										}
+									},
 								}}
 							/>
 
@@ -292,6 +417,13 @@ export default function TeacherMapCoordinatesEditor() {
 									pane="markerPane"
 									zIndexOffset={1000}
 									icon={vertexIcon}
+									// keep a ref to each vertex marker so it can be moved during polygon drag
+									ref={(el) => {
+										markerRefs.current[b.room] =
+											markerRefs.current[b.room] || [];
+										markerRefs.current[b.room][idx] =
+											el as unknown as L.Marker | null;
+									}}
 									eventHandlers={{
 										drag: (e) => {
 											const ll = e.target.getLatLng();
@@ -300,6 +432,25 @@ export default function TeacherMapCoordinatesEditor() {
 										dragend: (e) => {
 											const ll = e.target.getLatLng();
 											updateVertex(b.room, idx, { lat: ll.lat, lng: ll.lng });
+										},
+										dblclick: (e) => {
+											e.originalEvent.preventDefault();
+											e.originalEvent.stopPropagation();
+
+											setRooms((prev) => {
+												const i = prev.findIndex((r) => r.room === b.room);
+												if (i === -1) return prev;
+												const next = prev.slice();
+												const coords = next[i].coordinates.map(
+													(c) => [...c] as [number, number]
+												);
+												if (coords.length <= 3) {
+													return prev;
+												}
+												coords.splice(idx, 1);
+												next[i] = { ...next[i], coordinates: coords };
+												return next;
+											});
 										},
 									}}
 								/>

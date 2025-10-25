@@ -356,10 +356,7 @@ function StudentSettingsPage() {
 								</div>
 								<div className="grid gap-2">
 									<Label htmlFor="email">Email</Label>
-									<Input id="email" type="email" value={email} disabled />
-									<p className="text-xs text-muted-foreground">
-										Email address cannot be changed.
-									</p>
+									<Input id="email" type="email" value={email} />
 								</div>
 								<div className="flex gap-2">
 									<SaveButton
@@ -744,7 +741,6 @@ function StudentSettingsPage() {
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-6">
-								{/* Email notifications */}
 								<div className="flex items-start justify-between gap-4 rounded-xl border p-4">
 									<div className="space-y-1">
 										<div className="flex items-center gap-2">
@@ -768,7 +764,6 @@ function StudentSettingsPage() {
 									</div>
 								</div>
 
-								{/* Push notifications (coming soon) */}
 								<div className="flex items-start justify-between gap-4 rounded-xl border p-4 opacity-60">
 									<div className="space-y-1">
 										<div className="flex items-center gap-2">

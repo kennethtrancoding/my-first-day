@@ -125,7 +125,7 @@ function App() {
 							/>
 							<Route path="/teacher/home/map/" element={<TeacherMapEditorPage />} />
 							<Route
-								path="/teacher/home/mapCoordinates/"
+								path="/teacher/home/map/coordinates/"
 								element={<TeacherMapCoordinatesEditor />}
 							/>
 

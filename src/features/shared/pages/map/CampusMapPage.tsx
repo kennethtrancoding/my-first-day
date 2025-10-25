@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Polygon, useMap, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { buildingCoords } from "./buildingCoords";
+import { buildingCoords, type RoomData } from "./buildingCoords";
+import { loadMapRooms } from "@/utils/teacherData";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
@@ -82,11 +83,13 @@ export default function CampusMap() {
 		return result;
 	}, []);
 
+	const rooms = [...buildingCoords];
+
 	const allTypes = useMemo(() => {
 		const set = new Set<string>();
-		buildingCoords.forEach((b) => set.add(b.type ?? "Unknown"));
+		rooms.forEach((b) => set.add(b.type ?? "Unknown"));
 		return Array.from(set).sort();
-	}, [buildingCoords]);
+	}, [rooms]);
 
 	const [selectedTypes, setSelectedTypes] = useState<Set<string>>(() => new Set(allTypes));
 	const [showScheduleOnly, setShowScheduleOnly] = useState(false);
@@ -113,13 +116,13 @@ export default function CampusMap() {
 	);
 
 	const visibleRooms = useMemo(() => {
-		return buildingCoords.filter((b) => {
+		return rooms.filter((b) => {
 			const typeKey = b.type ?? "Unknown";
 			const typeOk = selectedTypes.has(typeKey);
 			const onSchedule = isOnSchedule(b.room);
 			return typeOk && (!showScheduleOnly || onSchedule);
 		});
-	}, [buildingCoords, selectedTypes, showScheduleOnly, isOnSchedule]);
+	}, [rooms, selectedTypes, showScheduleOnly, isOnSchedule]);
 
 	useEffect(() => {
 		if (!selectedRoomDetail) return;
@@ -138,7 +141,7 @@ export default function CampusMap() {
 					return null;
 				}
 				const normalizedRoom = normalize(trimmedRoom);
-				const found = buildingCoords.find((b) => normalize(b.room) === normalizedRoom);
+				const found = rooms.find((b) => normalize(b.room) === normalizedRoom);
 				const person = peopleByRoom[normalizedRoom];
 				const period = getPeriodForRoom(trimmedRoom) ?? index;
 				const typeLabel = person
@@ -160,7 +163,7 @@ export default function CampusMap() {
 					item != null && item.room.trim().length > 0
 			)
 			.sort((a, b) => a.period - b.period);
-	}, [normalizedSchedule, buildingCoords, peopleByRoom, getTypeColor, getPeriodForRoom]);
+	}, [normalizedSchedule, rooms, peopleByRoom, getTypeColor, getPeriodForRoom]);
 
 	return (
 		<>
@@ -172,6 +175,7 @@ export default function CampusMap() {
 				onChangeShowScheduleOnly={setShowScheduleOnly}
 				scheduleDetail={scheduleDetail}
 				getTypeColor={getTypeColor}
+				onBack={() => history.back()}
 			/>
 
 			<MapContainer

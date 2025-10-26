@@ -11,8 +11,6 @@ The application provides two user interfaces:
 Student Page: Allows new students to register, see available/matched mentors, and send connection messages.
 Mentor Page: Allows student mentors and teachers to manage their profiles, view assigned students, and respond to incoming questions and requests.
 
-Data: Data is currently not stored anywhere and deleted when the session ends for this prototype.
-
 # Features
 
 Routing: Manages page transitions via react-router-dom.

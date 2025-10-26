@@ -25,6 +25,8 @@ import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import { getCurrentEmail, updateAccount, logout, findAccount } from "@/utils/auth";
+import { matchMentorsForStudent } from "@/utils/mentorMatching";
+import { writeToStorage } from "@/utils/storage";
 
 type SaveState = "idle" | "saving" | "saved";
 type FieldKey = "name" | "interests" | "clothingSize" | "bio" | "schedule" | "notifications";
@@ -646,6 +648,18 @@ function StudentSettingsPage() {
 																	(t) => t !== tag
 															  )
 															: [...parsedInterests, tag];
+
+														writeToStorage(
+															`user:${storageIdentity}:profile:matchedMentorIds`,
+															matchMentorsForStudent(
+																{
+																	grade: gradeNumber ?? undefined,
+																	interests: next,
+																},
+																{ limit: 1 }
+															)
+														);
+
 														return next.join(", ");
 													})
 												}

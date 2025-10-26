@@ -8,7 +8,7 @@ import StudentDashboardSidebar from "./StudentDashboardSidebar";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { useCurrentAccount } from "@/hooks/useCurrentAccount";
 
 interface StudentDashboardLayoutProps {
 	activePage: string;
@@ -17,11 +17,7 @@ interface StudentDashboardLayoutProps {
 
 function StudentDashboardLayout({ activePage, children }: StudentDashboardLayoutProps) {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) : null),
-		[currentEmail]
-	);
+	const { account, currentEmail } = useCurrentAccount();
 
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const isAuthorized = React.useMemo(

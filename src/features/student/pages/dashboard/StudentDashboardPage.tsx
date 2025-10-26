@@ -1,33 +1,92 @@
-import { ArrowRight, Dot } from "lucide-react";
+import * as React from "react";
+import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
-import { mentors } from "@/people";
-import { featuredClubs, upcomingEvents } from "@/constants";
+import { upcomingEvents } from "@/constants";
 import { useNavigate } from "react-router-dom";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
+import { type MentorMatch, matchMentorsForStudent } from "@/utils/mentorMatching";
+import { useTeacherClubs } from "@/hooks/useTeacherCollections";
+import { useCurrentAccount } from "@/hooks/useCurrentAccount";
 
-function MatchedMentorList() {
-	const target = mentors.filter((m) => m.matchedWithUser === true && m.type === "peer");
-	if (target.length === 0) {
-		return <p className="text-sm text-muted-foreground">No matched mentor</p>;
+function MatchedMentorList({ matches }: { matches: MentorMatch[] }) {
+	const navigate = useNavigate();
+
+	if (matches.length === 0) {
+		return (
+			<p className="text-sm text-muted-foreground">
+				Add your grade and interests in Settings to see mentor suggestions.
+			</p>
+		);
 	}
 
-	return target.map((m) => (
-		<div key={m.id} className="space-y-1">
-			<p className="font-medium text-lg">{m.name}</p>
-			<div className="hidden md:flex items-center text-sm text-muted-foreground text-center">
-				<p className="text-sm text-muted-foreground">{m.grade}th Grade</p>
-				<Dot size={16} />
-				<p className="text-sm text-muted-foreground">{m.bio} </p>
+	const people = () => {
+		return matches.map(({ mentor }) => (
+			<div key={mentor.id} className="flex justify-between items-center">
+				<div className="flex gap-1 my-2">
+					<img
+						src={placeholderProfile}
+						alt="Peer mentor avatar"
+						className="rounded-full w-12 h-12 mb-4 mr-3"
+					/>
+					<div className="flex flex-col">
+						<div className="flex flex-row gap-2 items-baseline">
+							<p className="font-medium text-lg">{mentor.name}</p>
+							{mentor.grade && (
+								<p className="text-sm text-muted-foreground">
+									{mentor.grade}th Grade
+								</p>
+							)}
+						</div>
+						<p className="text-sm text-muted-foreground line-clamp-1">{mentor.bio}</p>
+					</div>
+				</div>
+				<Button onClick={() => navigate(`/student/home/messages/${mentor.id}/`)}>
+					Chat Now <ArrowRight size={16} className="ml-2" />
+				</Button>
 			</div>
-		</div>
-	));
+		));
+	};
+	return <div className="flex flex-col gap-4">{people()}</div>;
 }
 
-function StudentDashboardPage() {
+export default function StudentDashboardPage() {
 	const navigate = useNavigate();
+	const { account } = useCurrentAccount();
+
+	const profileInterests = React.useMemo(() => {
+		if (Array.isArray(account?.profile?.interests)) {
+			return account.profile.interests;
+		}
+		return [] as string[];
+	}, [account]);
+
+	const storedMatches = React.useMemo(() => {
+		if (Array.isArray(account?.profile?.matchedMentorIds)) {
+			return account.profile.matchedMentorIds;
+		}
+		return [] as MentorMatch[];
+	}, [account]);
+
+	const mentorMatches = React.useMemo(() => {
+		if (!account) {
+			return [] as MentorMatch[];
+		}
+		const calculated = matchMentorsForStudent(
+			{
+				grade: account.profile?.grade,
+				interests: profileInterests,
+			},
+			{ limit: 1 }
+		);
+		return calculated.length ? calculated : storedMatches;
+	}, [account, profileInterests, storedMatches]);
+
+	const [clubs] = useTeacherClubs();
+	const featuredClubs = React.useMemo(() => clubs.filter((club) => club.featured), [clubs]);
+
 	return (
 		<StudentDashboardLayout activePage="home">
 			<div className="grid gap-6 min-h-[calc(100vh-12rem)] lg:grid-cols-3 lg:grid-rows-[auto_auto_1fr]">
@@ -35,25 +94,11 @@ function StudentDashboardPage() {
 					<CardHeader>
 						<CardTitle>
 							Meet your peer mentor
-							{mentors.filter((m) => m.matchedWithUser === true && m.type === "peer")
-								.length > 1 && "s"}
-							!
+							{mentorMatches.length > 1 && "s"}!
 						</CardTitle>
 					</CardHeader>
-					<CardContent className="flex items-center justify-between">
-						<div className="flex gap-4">
-							<img
-								src={placeholderProfile}
-								alt="Peer mentor avatar"
-								className="rounded-full w-11 h-11 mb-4"
-							/>
-							<div className="space-y-1">
-								<MatchedMentorList />
-							</div>
-						</div>
-						<Button onClick={() => navigate("/student/home/messages/")}>
-							Chat Now <ArrowRight size={16} className="ml-2" />
-						</Button>
+					<CardContent>
+						<MatchedMentorList matches={mentorMatches} />
 					</CardContent>
 				</Card>
 
@@ -155,5 +200,3 @@ function StudentDashboardPage() {
 		</StudentDashboardLayout>
 	);
 }
-
-export default StudentDashboardPage;

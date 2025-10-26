@@ -42,6 +42,7 @@ export interface Student {
 	requestedCommunication?: boolean;
 	bio: string;
 	profilePicture: string;
+	email?: string;
 	conversation: Message[];
 	lastMessage: string;
 	lastMessageUnix: number;
@@ -52,7 +53,7 @@ export const students: Student[] = [
 		id: 101,
 		name: "Avery Kim",
 		grade: 8,
-		assignedToMentor: false,
+		assignedToMentor: true,
 		hasConnected: false,
 		bio: "I enjoy robotics, science fairs, and exploring how machines work. Excited to join STEM Club!",
 		profilePicture: profilePicture,
@@ -64,7 +65,7 @@ export const students: Student[] = [
 		id: 102,
 		name: "Marcus Tran",
 		grade: 7,
-		assignedToMentor: false,
+		assignedToMentor: true,
 		hasConnected: false,
 		bio: "I love playing soccer, coding small games, and building things with my friends.",
 		profilePicture: profilePicture,
@@ -301,23 +302,7 @@ export const mentors: Person[] = [
 		email: "mbarrios@wcusd.org",
 		roomNumber: "6",
 		department: "Science",
-		conversation: [
-			{
-				id: 1,
-				from: "in",
-				text: "Welcome! I'm running a quick robotics lab tour Wednesday—want a preview of the makerspace before the first day?",
-			},
-			{
-				id: 2,
-				from: "out",
-				text: "Yes please! I'm nervous about finding the lab and my classes.",
-			},
-			{
-				id: 3,
-				from: "in",
-				text: "No worries. We'll meet at the front office at 3:30 and I'll show you your homeroom, the lab, and where buses line up.",
-			},
-		],
+		conversation: [],
 		lastMessage: now,
 		lastMessageUnix: nowUnix,
 	},
@@ -750,19 +735,7 @@ export const mentors: Person[] = [
 		hasConnected: true,
 		bio: "I love science tutoring, volleyball, and collecting mechanical keyboards.",
 		profilePicture: profilePicture,
-		conversation: [
-			{
-				id: 1,
-				from: "in",
-				text: "Want a quick practice run from the main gate to your first three classes?",
-			},
-			{ id: 2, from: "out", text: "Yes! I'm nervous about being late." },
-			{
-				id: 3,
-				from: "in",
-				text: "We'll time it together—promise you'll feel ready by day one.",
-			},
-		],
+		conversation: [],
 		lastMessage: now,
 		lastMessageUnix: nowUnix,
 	},

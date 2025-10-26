@@ -2,7 +2,7 @@ import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Calendar, Mail, MapPin, Users } from "lucide-react";
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
-import { clubDirectory, featuredClubs } from "@/constants";
+import { useTeacherClubs } from "@/hooks/useTeacherCollections";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,9 +20,10 @@ const StudentClubDetailPage = () => {
 	const navigate = useNavigate();
 	const { clubSlug } = useParams<{ clubSlug: string }>();
 
+	const [clubs] = useTeacherClubs();
 	const club = React.useMemo(
-		() => clubDirectory.find((item) => item.slug === clubSlug),
-		[clubSlug]
+		() => clubs.find((item) => item.slug === clubSlug),
+		[clubSlug, clubs]
 	);
 
 	React.useEffect(() => {
@@ -46,11 +47,8 @@ const StudentClubDetailPage = () => {
 		);
 	}
 
-	const advisorId = club.advisorProfile?.id;
 	const openAdvisorMessages = () => {
-		const target =
-			advisorId != null ? `/student/home/messages/${advisorId}/` : "/student/home/messages/";
-		navigate(target);
+		navigate("/student/home/messages/");
 	};
 
 	return (

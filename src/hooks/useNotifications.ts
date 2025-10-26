@@ -1,6 +1,11 @@
 import * as React from "react";
 import { useStoredState } from "@/hooks/useStoredState";
-import { AccountRole, getCurrentEmail, findAccount } from "@/utils/auth";
+import {
+	AccountRole,
+	getCurrentEmail,
+	findAccount,
+	getDisplayNameForAccount,
+} from "@/utils/auth";
 import { readFromStorage, writeToStorage } from "@/utils/storage";
 
 export type NotificationCategory = "message" | "request" | "connection" | "system";
@@ -71,17 +76,7 @@ export function getDisplayNameForCurrentAccount() {
 		return null;
 	}
 	const account = findAccount(currentEmail);
-	if (!account) {
-		return currentEmail;
-	}
-
-	const profile = account.profile ?? {};
-	const first = profile.firstName?.trim();
-	const last = profile.lastName?.trim();
-	if (first && last) {
-		return `${first} ${last}`;
-	}
-	return first ?? profile.displayName ?? account.email;
+	return getDisplayNameForAccount(account) ?? currentEmail;
 }
 
 export function useNotifications(role: AccountRole) {

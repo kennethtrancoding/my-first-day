@@ -1,4 +1,5 @@
 import { readFromStorage, removeFromStorage, writeToStorage } from "@/utils/storage";
+import { MentorMatch } from "./mentorMatching";
 
 export type AccountRole = "student" | "mentor";
 
@@ -11,6 +12,7 @@ export interface AccountProfile {
 	schedule?: string[];
 	clothingSize?: string;
 	bio?: string;
+	matchedMentorIds?: MentorMatch[];
 	mentorBio?: string;
 	mentorOfficeHours?: string;
 	mentorType?: "teacher" | "student";
@@ -26,6 +28,7 @@ export interface AccountSettings {
 }
 
 export interface StoredAccount {
+	id: number;
 	email: string;
 	password: string;
 	role: AccountRole;
@@ -39,8 +42,28 @@ const ACCOUNTS_KEY = "auth:accounts";
 const CURRENT_EMAIL_KEY = "auth:currentEmail";
 const PENDING_EMAIL_KEY = "auth:pendingEmail";
 
+function generateAccountId(): number {
+	const timestampComponent = Date.now().toString(36);
+	const randomComponent = Math.floor(Math.random() * 1_000_000)
+		.toString(36)
+		.padStart(4, "0");
+	return Number.parseInt(`${timestampComponent}${randomComponent}`, 36);
+}
+
 export function getAccounts(): StoredAccount[] {
-	return readFromStorage<StoredAccount[]>(ACCOUNTS_KEY, [] as StoredAccount[]);
+	const accounts = readFromStorage<StoredAccount[]>(ACCOUNTS_KEY, [] as StoredAccount[]);
+	let needsPersist = false;
+	const normalized = accounts.map((account) => {
+		if (!account.id) {
+			needsPersist = true;
+			return { ...account, id: generateAccountId() } as StoredAccount;
+		}
+		return account;
+	});
+	if (needsPersist) {
+		saveAccounts(normalized);
+	}
+	return normalized;
 }
 
 export function saveAccounts(accounts: StoredAccount[]) {
@@ -52,13 +75,28 @@ export function findAccount(email: string) {
 	return getAccounts().find((account) => account.email.toLowerCase() === normalized);
 }
 
+export function getDisplayNameForAccount(account?: StoredAccount | null) {
+	if (!account) {
+		return null;
+	}
+
+	const profile = account.profile ?? {};
+	const first = profile.firstName?.trim();
+	const last = profile.lastName?.trim();
+	if (first && last) {
+		return `${first} ${last}`;
+	}
+
+	return first ?? profile.displayName?.trim() ?? account.email;
+}
+
 export function registerAccount(input: {
-    email: string;
-    password: string;
-    role?: AccountRole;
-    createdAt?: string;
+	email: string;
+	password: string;
+	role?: AccountRole;
+	createdAt?: string;
 }): StoredAccount | null {
-    const trimmedEmail = input.email.trim().toLowerCase();
+	const trimmedEmail = input.email.trim().toLowerCase();
 	const accounts = getAccounts();
 	const existingIndex = accounts.findIndex(
 		(item) => item.email.toLowerCase() === trimmedEmail.toLowerCase()
@@ -69,6 +107,7 @@ export function registerAccount(input: {
 	}
 
 	const account: StoredAccount = {
+		id: generateAccountId(),
 		email: trimmedEmail,
 		password: input.password,
 		role: input.role ?? "student",
@@ -94,7 +133,7 @@ export function authenticate(email: string, password: string) {
 		return null;
 	}
 
-    writeToStorage(CURRENT_EMAIL_KEY, account.email.toLowerCase());
+	writeToStorage(CURRENT_EMAIL_KEY, account.email.toLowerCase());
 	return account;
 }
 
@@ -107,11 +146,11 @@ export function getCurrentEmail() {
 }
 
 export function setCurrentEmail(email: string) {
-    writeToStorage(CURRENT_EMAIL_KEY, email.trim().toLowerCase());
+	writeToStorage(CURRENT_EMAIL_KEY, email.trim().toLowerCase());
 }
 
 export function setPendingEmail(email: string) {
-    writeToStorage(PENDING_EMAIL_KEY, email.trim().toLowerCase());
+	writeToStorage(PENDING_EMAIL_KEY, email.trim().toLowerCase());
 }
 
 export function getPendingEmail() {

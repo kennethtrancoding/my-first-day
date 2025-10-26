@@ -8,12 +8,31 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { mentors, Message, Person } from "@/people";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import placeholderProfile from "@/assets/placeholder-profile.svg";
+import { StoredAccount, getDisplayNameForAccount } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import {
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
+	useNotifications,
 } from "@/hooks/useNotifications";
+import { useCurrentAccount } from "@/hooks/useCurrentAccount";
+import {
+	CONVERSATION_STORE_KEY,
+	ConversationStore,
+	appendConversationMessage,
+	getConversationKey,
+	mapMessagesForViewer,
+	getLastActivityTimestamp,
+	formatLastActivity,
+	buildAccountThreadId,
+	CONVERSATION_REQUESTS_KEY,
+	ConversationRequestStore,
+	getConversationRequest,
+	upsertConversationRequest,
+	removeConversationRequest,
+	normalizeEmail,
+} from "@/utils/messaging";
 
 function formatWhen(ts: number | string) {
 	const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
@@ -27,23 +46,22 @@ function formatWhen(ts: number | string) {
 		: d.toLocaleDateString();
 }
 
-function cloneMentorThreads(): Person[] {
+function cloneMentorThreads(matchedIds?: Set<number>): Person[] {
 	return mentors.map((mentor) => ({
 		...mentor,
+		matchedWithUser: matchedIds ? matchedIds.has(mentor.id) : mentor.matchedWithUser,
 		conversation: mentor.conversation.map((message) => ({ ...message })),
 	}));
 }
 
 function StudentMessagingLayout() {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => {
-		const raw = getCurrentEmail();
-		return raw ? raw : null;
-	}, []);
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
-		[currentEmail]
-	);
+	const { account, currentEmail } = useCurrentAccount();
+	const profileMatches = account?.profile?.matchedMentorIds;
+	const matchedMentorIds = React.useMemo(() => {
+		const matches = profileMatches ?? [];
+		return new Set(matches.slice(0, 4).map((match) => match.mentor.id));
+	}, [profileMatches]);
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const shouldRedirectOnboarding = React.useMemo(
 		() =>
@@ -73,9 +91,15 @@ function StudentMessagingLayout() {
 		[storageIdentity]
 	);
 
-	const [threads, setThreads] = useStoredState<Person[]>(`${storagePrefix}:threads`, () =>
-		cloneMentorThreads()
+	const [localThreads, setLocalThreads] = useStoredState<Person[]>(
+		`${storagePrefix}:threads`,
+		() => cloneMentorThreads(matchedMentorIds)
 	);
+	const [conversationStore, setConversationStore] = useStoredState<ConversationStore>(
+		CONVERSATION_STORE_KEY,
+		() => ({} as ConversationStore)
+	);
+	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
 	const [selectedId, setSelectedId] = useStoredState<number | null>(
 		`${storagePrefix}:selectedId`,
 		null
@@ -95,13 +119,101 @@ function StudentMessagingLayout() {
 		`${storagePrefix}:showAllConnected`,
 		false
 	);
+	const [conversationRequests, setConversationRequests] =
+		useStoredState<ConversationRequestStore>(
+			CONVERSATION_REQUESTS_KEY,
+			() => ({} as ConversationRequestStore)
+		);
 	const ROW_LIMIT = 6;
 	const studentDisplayName = React.useMemo(
 		() => getDisplayNameForCurrentAccount() ?? "A student",
 		[]
 	);
+	const { addNotification: addStudentNotification } = useNotifications("student");
 
 	const { id: routeId } = useParams<{ id?: string }>();
+
+	const mentorAccounts = React.useMemo(
+		() =>
+			allAccounts.filter(
+				(account) => account.role === "mentor" && account.email !== currentEmail
+			),
+		[currentEmail, allAccounts]
+	);
+
+	const dynamicMentorThreads = React.useMemo(() => {
+		if (!currentEmail) {
+			return [] as Person[];
+		}
+
+		return mentorAccounts.map((mentorAccount) => {
+			const key = getConversationKey(currentEmail, mentorAccount.email);
+			const thread = conversationStore[key];
+			const conversation = mapMessagesForViewer(thread, currentEmail);
+			const lastActivity = getLastActivityTimestamp(thread);
+			const hasConnected = conversation.length > 0;
+			const name = getDisplayNameForAccount(mentorAccount) ?? mentorAccount.email;
+			return {
+				id: buildAccountThreadId(mentorAccount.email, "mentor"),
+				name,
+				type: mentorAccount.profile?.mentorType === "teacher" ? "teacher" : "peer",
+				matchedWithUser: false,
+				hasConnected,
+				requestedCommunication: false,
+				bio:
+					mentorAccount.profile?.mentorBio?.trim() ||
+					mentorAccount.profile?.bio?.trim() ||
+					`${name} is available to connect.`,
+				profilePicture: placeholderProfile,
+				email: mentorAccount.email,
+				conversation,
+				lastMessage: formatLastActivity(lastActivity),
+				lastMessageUnix: lastActivity,
+			} as Person;
+		});
+	}, [conversationStore, mentorAccounts, currentEmail]);
+
+	const threads = React.useMemo(() => {
+		const map = new Map<number, Person>();
+		dynamicMentorThreads.forEach((thread) => {
+			map.set(thread.id, thread);
+		});
+		localThreads.forEach((thread) => {
+			if (!map.has(thread.id)) {
+				map.set(thread.id, thread);
+			}
+		});
+		const decorated = [...map.values()].map((thread) => {
+			if (currentEmail && thread.email) {
+				const request = getConversationRequest(
+					conversationRequests,
+					currentEmail,
+					thread.email
+				);
+				if (
+					request?.direction === "student_to_mentor" &&
+					request.initiator === normalizeEmail(currentEmail) &&
+					!thread.hasConnected
+				) {
+					return { ...thread, requestedCommunication: true };
+				}
+			}
+			return thread;
+		});
+		return decorated.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
+	}, [dynamicMentorThreads, localThreads, conversationRequests, currentEmail]);
+
+	React.useEffect(() => {
+		setLocalThreads((prev) =>
+			prev.map((thread) => {
+				const nextMatched = matchedMentorIds.has(thread.id);
+				if (thread.matchedWithUser === nextMatched) {
+					return thread;
+				}
+				return { ...thread, matchedWithUser: nextMatched };
+			})
+		);
+	}, [matchedMentorIds, setLocalThreads]);
 
 	React.useEffect(() => {
 		if (shouldRedirectOnboarding) {
@@ -114,10 +226,6 @@ function StudentMessagingLayout() {
 		}
 	}, [isAuthorized, navigate, shouldRedirectHome, shouldRedirectOnboarding]);
 
-	if (!isAuthorized) {
-		return null;
-	}
-
 	React.useEffect(() => {
 		if (routeId) {
 			const parsed = Number(routeId);
@@ -127,13 +235,13 @@ function StudentMessagingLayout() {
 			}
 		}
 		setSelectedId((prev) => (prev == null && threads.length ? threads[0].id : prev));
-	}, [routeId, threads]);
+	}, [routeId, threads, setSelectedId]);
 
 	React.useEffect(() => {
 		if (selectedId != null && !threads.some((p) => p.id === selectedId)) {
 			setSelectedId(threads[0]?.id ?? null);
 		}
-	}, [threads, selectedId]);
+	}, [threads, selectedId, setSelectedId]);
 
 	const selected = React.useMemo(
 		() => (selectedId == null ? undefined : threads.find((p) => p.id === selectedId)),
@@ -146,45 +254,126 @@ function StudentMessagingLayout() {
 	}, [selectedId, selected?.conversation.length]);
 
 	function openChat(personId: number) {
-		if (personId !== selectedId) {
-			setSelectedId(personId);
-			navigate(`/student/home/messages/${personId}`, { replace: false });
+		setSelectedId(personId);
+		navigate(`/student/home/messages/${personId}`);
+	}
+
+	function requestChat(person?: Person) {
+		const target = person ?? selected;
+		if (!target || target.hasConnected) {
+			return;
 		}
+
+		if (!currentEmail || !target.email) {
+			setLocalThreads((prevThreads) =>
+				prevThreads.map((thread) =>
+					thread.id === target.id ? { ...thread, requestedCommunication: true } : thread
+				)
+			);
+			return;
+		}
+
+		const existingRequest = getConversationRequest(
+			conversationRequests,
+			currentEmail,
+			target.email
+		);
+		if (existingRequest) {
+			return;
+		}
+
+		setConversationRequests((prev) =>
+			upsertConversationRequest(prev, {
+				initiator: currentEmail,
+				recipient: target.email!,
+				direction: "student_to_mentor",
+			})
+		);
+		setLocalThreads((prev) =>
+			prev.map((thread) =>
+				thread.id === target.id ? { ...thread, requestedCommunication: true } : thread
+			)
+		);
+
+		addStudentNotification({
+			message: `Chat request sent to ${target.name}.`,
+			type: "request",
+			contextId: target.id,
+		});
+
+		const mentorRouteId = buildAccountThreadId(currentEmail, "student");
+		pushNotificationToOtherRole(
+			"mentor",
+			`${studentDisplayName} requested to connect with you.`,
+			{
+				type: "request",
+				contextId: mentorRouteId ?? target.id,
+				link: `/mentor/home/messages/${mentorRouteId ?? target.id}`,
+				email: target.email,
+			}
+		);
 	}
 
 	function sendMessage() {
 		const text = composer.trim();
-		if (!text || selectedId == null) return;
+		if (!text || selectedId == null || !selected) return;
+		if (selected.requestedCommunication && !selected.hasConnected) {
+			return;
+		}
 
-		const next: Message = { id: Date.now(), from: "out", text };
 		const nowStr = new Date().toLocaleString();
 		const nowUnix = Date.now();
 
-		setThreads((prevThreads) => {
-			const updated = prevThreads.map((thread) => {
-				if (thread.id !== selectedId) {
-					return thread;
-				}
+		if (selected.email && currentEmail) {
+			setConversationStore((prevStore) =>
+				appendConversationMessage(prevStore, {
+					from: currentEmail,
+					to: selected.email!,
+					text,
+				})
+			);
+		} else {
+			const next: Message = { id: Date.now(), from: "out", text };
+			setLocalThreads((prevThreads) => {
+				const updated = prevThreads.map((thread) => {
+					if (thread.id !== selectedId) {
+						return thread;
+					}
 
-				const updatedConversation = [...thread.conversation, next];
+					const updatedConversation = [...thread.conversation, next];
 
-				return {
-					...thread,
-					hasConnected: true,
-					requestedCommunication: false,
-					conversation: updatedConversation,
-					lastMessage: nowStr,
-					lastMessageUnix: nowUnix,
-				};
+					return {
+						...thread,
+						hasConnected: true,
+						requestedCommunication: false,
+						conversation: updatedConversation,
+						lastMessage: nowStr,
+						lastMessageUnix: nowUnix,
+					};
+				});
+
+				return [...updated].sort(
+					(a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0)
+				);
 			});
+		}
 
-			return [...updated].sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
-		});
+		if (selected.email && currentEmail) {
+			setConversationRequests((prev) =>
+				removeConversationRequest(prev, currentEmail, selected.email!)
+			);
+		}
+
+		const mentorRouteId =
+			selected.email && currentEmail
+				? buildAccountThreadId(currentEmail, "student")
+				: selectedId;
 
 		pushNotificationToOtherRole("mentor", `${studentDisplayName} sent you a new message.`, {
 			type: "message",
-			contextId: selectedId,
-			link: `/mentor/home/messages/${selectedId}`,
+			contextId: mentorRouteId,
+			link: `/mentor/home/messages/${mentorRouteId ?? selectedId}`,
+			email: selected.email,
 		});
 
 		setComposer("");
@@ -216,6 +405,9 @@ function StudentMessagingLayout() {
 	const outstandingRequestCount = React.useMemo(
 		() => threads.filter((p) => p.requestedCommunication && !p.hasConnected).length,
 		[threads]
+	);
+	const canRequestSelected = Boolean(
+		selected && !selected.hasConnected && !selected.requestedCommunication
 	);
 	const isPendingSelected = selected?.requestedCommunication && !selected?.hasConnected;
 	const pendingRequestLabel = outstandingRequestCount === 1 ? "request" : "requests";
@@ -249,27 +441,40 @@ function StudentMessagingLayout() {
 				</div>
 				<ul className="divide-y">
 					{visible.map((p) => (
-						<li
-							key={p.id}
-							className={`py-2 px-2 rounded-md cursor-pointer hover:bg-muted/60 flex items-start gap-3 ${
-								p.id === selectedId ? "bg-muted" : ""
-							} items-center`}
-							onClick={() => openChat(p.id)}>
-							<img className="w-8 h-8" src={p.profilePicture} />
-							<div className="flex-1 min-w-0">
-								<div className="flex items-center justify-between gap-2">
-									<span className="font-medium truncate">{p.name}</span>
-									{p.lastMessageUnix && (
-										<span className="text-[10px] text-muted-foreground shrink-0">
-											{formatWhen(p.lastMessageUnix)}
-										</span>
+						<li key={p.id} className="rounded-md focus-within:ring-1 focus-within:ring-ring">
+							<div
+								role="button"
+								tabIndex={0}
+								className={`w-full py-2 px-2 rounded-md flex items-start gap-3 text-left transition cursor-pointer ${
+									p.id === selectedId ? "bg-muted" : "hover:bg-muted/60"
+								}`}
+								onClick={() => openChat(p.id)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter" || event.key === " ") {
+										event.preventDefault();
+										openChat(p.id);
+									}
+								}}>
+								<img
+									className="w-8 h-8 rounded-full flex-shrink-0"
+									src={p.profilePicture}
+									alt={`${p.name} avatar`}
+								/>
+								<div className="flex-1 min-w-0">
+									<div className="flex items-center justify-between gap-2">
+										<span className="font-medium truncate">{p.name}</span>
+										{p.lastMessageUnix && (
+											<span className="text-[10px] text-muted-foreground shrink-0">
+												{formatWhen(p.lastMessageUnix)}
+											</span>
+										)}
+									</div>
+									{p.requestedCommunication && !p.hasConnected && (
+										<Badge className="mt-1 w-fit text-[10px]" variant="secondary">
+											Requested
+										</Badge>
 									)}
 								</div>
-								{p.requestedCommunication && !p.hasConnected && (
-									<Badge className="mt-1 w-fit text-[10px]" variant="secondary">
-										Requested
-									</Badge>
-								)}
 							</div>
 						</li>
 					))}
@@ -279,6 +484,10 @@ function StudentMessagingLayout() {
 				</ul>
 			</div>
 		);
+	}
+
+	if (!isAuthorized) {
+		return null;
 	}
 
 	return (
@@ -296,6 +505,19 @@ function StudentMessagingLayout() {
 							</CardHeader>
 
 							<CardContent className="flex-1 flex flex-col p-0">
+								{canRequestSelected && selected && (
+									<div className="px-4 pt-4">
+										<div className="rounded-md border border-dashed bg-muted/50 p-3 space-y-3 text-sm text-muted-foreground">
+											<p>
+												Request to chat with {selected.name}. We'll notify
+												them so they can respond when they're available.
+											</p>
+											<Button size="sm" onClick={() => requestChat(selected)}>
+												Request to chat
+											</Button>
+										</div>
+									</div>
+								)}
 								{isPendingSelected && selected && (
 									<div className="px-4 pt-4">
 										<div className="rounded-md border border-dashed bg-muted/50 p-3 text-sm text-muted-foreground">
@@ -330,17 +552,23 @@ function StudentMessagingLayout() {
 												selected?.name
 													? isPendingSelected
 														? `Waiting for ${selected.name} to accept`
+														: canRequestSelected
+														? `Request to chat with ${selected.name}`
 														: `Chat with ${selected.name}`
 													: "Start a conversation"
 											}
 											value={composer}
 											onChange={(e) => setComposer(e.target.value)}
 											onKeyDown={handleKeyDown}
-											disabled={isPendingSelected}
+											disabled={isPendingSelected || canRequestSelected}
 										/>
 										<Button
 											onClick={sendMessage}
-											disabled={isPendingSelected || !composer.trim()}>
+											disabled={
+												isPendingSelected ||
+												canRequestSelected ||
+												!composer.trim()
+											}>
 											Send
 										</Button>
 									</div>

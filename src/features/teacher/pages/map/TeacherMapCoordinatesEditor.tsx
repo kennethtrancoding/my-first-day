@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polygon, useMap, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L, { icon } from "leaflet";
+import L, { LatLngTuple, LeafletMouseEvent, MarkerOptions } from "leaflet";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
@@ -19,7 +19,8 @@ const DefaultIcon = L.icon({
 	iconSize: [25, 41],
 	iconAnchor: [12, 41],
 });
-(L.Marker.prototype as any).options.icon = DefaultIcon;
+const markerPrototype = L.Marker.prototype as L.Marker & { options: MarkerOptions };
+markerPrototype.options.icon = DefaultIcon;
 
 const iconSize = 14;
 const vertexIcon = L.divIcon({
@@ -108,7 +109,7 @@ export default function TeacherMapCoordinatesEditor() {
 		});
 	}, [rooms, selectedTypes]);
 
-	const coordsKey = (roomLabel: string, coords: L.LatLngTuple[]) =>
+	const coordsKey = (roomLabel: string, coords: LatLngTuple[]) =>
 		`${roomLabel}-${coords.map((c) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`).join(";")}`;
 
 	function updatePolygonVisual(roomLabel: string, idx: number, lat: number, lng: number) {
@@ -155,7 +156,11 @@ export default function TeacherMapCoordinatesEditor() {
 		return best;
 	}
 
-	function updateVertex(roomKey: any, idx: number, coord: { lat: number; lng: number }) {
+	function updateVertex(
+		roomKey: string | RoomData | { room?: string },
+		idx: number,
+		coord: { lat: number; lng: number }
+	) {
 		const resolveLabel = (): string | undefined => {
 			if (typeof roomKey === "string") {
 				if (rooms.some((r) => r.room === roomKey)) return roomKey;
@@ -166,7 +171,8 @@ export default function TeacherMapCoordinatesEditor() {
 				);
 				if (found) return found.room;
 			} else if (roomKey && typeof roomKey === "object" && "room" in roomKey) {
-				return (roomKey as any).room;
+				const candidate = roomKey as { room?: string };
+				return candidate.room;
 			}
 			return undefined;
 		};
@@ -261,7 +267,8 @@ export default function TeacherMapCoordinatesEditor() {
 				zoomControl={false}
 				doubleClickZoom={false}
 				boxZoom={false}
-				style={{ height: "100vh", width: "100%" }}>
+				style={{ height: "100vh", width: "100%" }}
+				ref={mapRef}>
 				<ZoomControlBottomLeft />
 
 				<TileLayer
@@ -292,7 +299,7 @@ export default function TeacherMapCoordinatesEditor() {
 									weight: isSelected ? 3 : 2,
 								}}
 								eventHandlers={{
-									click: (e) => {
+									click: (event: LeafletMouseEvent) => {
 										setSelectedRoom(b.room);
 										const teacher = peopleByRoom[normalize(b.room)];
 										const popupContent = `
@@ -306,17 +313,20 @@ export default function TeacherMapCoordinatesEditor() {
 								: ""
 						}
                       </div>`;
-										(e.target as L.Polygon)
+										(event.target as L.Polygon)
 											.bindPopup(popupContent, { maxWidth: 260 })
-											.openPopup((e as any).latlng);
+											.openPopup(event.latlng);
 									},
 
-									mousedown: (e) => {
-										if (!e.originalEvent.shiftKey) return;
-										e.originalEvent.preventDefault();
+									mousedown: (event: LeafletMouseEvent) => {
+										if (!event.originalEvent.shiftKey) return;
+										event.originalEvent.preventDefault();
 
-										const map = e.target._map;
-										const start = map.latLngToLayerPoint(e.latlng);
+										const map = mapRef.current;
+										if (!map) {
+											return;
+										}
+										const start = map.latLngToLayerPoint(event.latlng);
 
 										const poly = polyRefs.current[b.room];
 										if (!poly) return;
@@ -345,9 +355,9 @@ export default function TeacherMapCoordinatesEditor() {
 
 											const markersForRoom = markerRefs.current[b.room] || [];
 											for (let j = 0; j < moved.length; j++) {
-												const m = markersForRoom[j];
-												if (m && (m as any).setLatLng) {
-													(m as any).setLatLng(moved[j]);
+												const marker = markersForRoom[j];
+												if (marker) {
+													marker.setLatLng(moved[j]);
 												}
 											}
 
@@ -382,12 +392,15 @@ export default function TeacherMapCoordinatesEditor() {
 										map.on("mouseup", upHandler);
 									},
 
-									dblclick: (e: any) => {
-										nearestSegment(b, e.latlng, e.target._map);
+									dblclick: (event: LeafletMouseEvent) => {
+										const map = mapRef.current;
+										if (!map) {
+											return;
+										}
 										const { idx: bestIdx, point: bestPoint } = nearestSegment(
 											b,
-											e.latlng,
-											e.target._map
+											event.latlng,
+											map
 										);
 										if (bestIdx >= 0) {
 											setRooms((prev) => {
@@ -421,8 +434,7 @@ export default function TeacherMapCoordinatesEditor() {
 									ref={(el) => {
 										markerRefs.current[b.room] =
 											markerRefs.current[b.room] || [];
-										markerRefs.current[b.room][idx] =
-											el as unknown as L.Marker | null;
+										markerRefs.current[b.room][idx] = el ?? null;
 									}}
 									eventHandlers={{
 										drag: (e) => {

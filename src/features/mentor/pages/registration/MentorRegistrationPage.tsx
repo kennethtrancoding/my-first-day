@@ -49,7 +49,7 @@ const MentorRegistrationPage = () => {
 
 	const [teacherName, setTeacherName] = useStoredState<string>(
 		`${storagePrefix}:teacher:name`,
-		onboardingFullName
+		""
 	);
 
 	const [teacherDepartment, setTeacherDepartment] = useStoredState<string>(
@@ -65,8 +65,8 @@ const MentorRegistrationPage = () => {
 		""
 	);
 
-	const [studentEmail, setStudentEmail] = useStoredState<string>(
-		`${storagePrefix}:student:email`,
+	const [studentName, setStudentName] = useStoredState<string>(
+		`${storagePrefix}:student:name`,
 		""
 	);
 	const [studentGrade, setStudentGrade] = useStoredState<string>(
@@ -83,7 +83,7 @@ const MentorRegistrationPage = () => {
 		event.preventDefault();
 		setIsSubmitting(true);
 
-		const normalizedFullName = (role === "teacher" ? teacherName : onboardingFullName).trim();
+		const normalizedFullName = (role === "teacher" ? teacherName : studentName).trim();
 		const [first, ...rest] = normalizedFullName.split(/\s+/);
 
 		const profileUpdates: AccountProfile = {
@@ -194,14 +194,14 @@ const MentorRegistrationPage = () => {
 
 							<TabsContent value="student" className="space-y-6">
 								<div className="grid gap-2">
-									<Label htmlFor="student-email">School Email</Label>
+									<Label htmlFor="student-name">Full Name</Label>
 									<Input
-										id="student-email"
-										type="email"
-										placeholder="leej@wcusd.net"
+										id="student-name"
+										type="text"
+										placeholder="Alex Johnson"
 										required
-										value={studentEmail}
-										onChange={(e) => setStudentEmail(e.target.value)}
+										value={studentName}
+										onChange={(e) => setStudentName(e.target.value)}
 									/>
 								</div>
 

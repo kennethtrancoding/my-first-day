@@ -11,7 +11,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
 import { useMemo } from "react";
-import { findAccount, getCurrentEmail, logout } from "@/utils/auth";
+import { getDisplayNameForAccount, logout } from "@/utils/auth";
+import { useCurrentAccount } from "@/hooks/useCurrentAccount";
 
 interface StudentDashboardSidebarProps {
 	activePage: string;
@@ -21,20 +22,12 @@ const sidebarMenuList = ["Home", "Messages", "Clubs", "Resources", "Settings"];
 
 function StudentDashboardSidebar({ activePage }: StudentDashboardSidebarProps) {
 	const navigate = useNavigate();
-	const currentEmail = useMemo(() => getCurrentEmail(), []);
-	const account = useMemo(
-		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
-		[currentEmail]
+	const { account } = useCurrentAccount();
+
+	const displayName = useMemo(
+		() => getDisplayNameForAccount(account) || account?.email || "Guest",
+		[account]
 	);
-
-	const displayName = useMemo(() => {
-		const profile = account?.profile ?? {};
-		const first = profile.firstName?.trim();
-		const last = profile.lastName?.trim();
-		const fullName = first && last ? `${first} ${last}` : first ?? profile.displayName?.trim();
-
-		return fullName || account?.email || "Guest";
-	}, [account]);
 
 	return (
 		<Sidebar>

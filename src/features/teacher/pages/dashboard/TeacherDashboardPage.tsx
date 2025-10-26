@@ -23,10 +23,9 @@ function TeacherDashboardPage() {
 							Share helpful updates with students and keep campus information accurate.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="flex flex-col sm:flex-row gap-4">
+					<CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						<Button
 							size="lg"
-							className="flex-1"
 							onClick={() => navigate("/teacher/home/resources/")}>
 							Manage Resources
 							<ArrowRight size={16} className="ml-2" />
@@ -34,9 +33,15 @@ function TeacherDashboardPage() {
 						<Button
 							size="lg"
 							variant="outline"
-							className="flex-1"
 							onClick={() => navigate("/teacher/home/map/")}>
 							Update Campus Map
+							<ArrowRight size={16} className="ml-2" />
+						</Button>
+						<Button
+							size="lg"
+							variant="secondary"
+							onClick={() => navigate("/teacher/home/messages/")}>
+							Message Students
 							<ArrowRight size={16} className="ml-2" />
 						</Button>
 					</CardContent>

@@ -9,13 +9,30 @@ import { mentors, Person } from "@/people";
 import profilePicture from "@/assets/placeholder-profile.svg";
 import { useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail } from "@/utils/auth";
+import {
+	StoredAccount,
+	getCurrentEmail,
+	getDisplayNameForAccount,
+} from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import {
 	useNotifications,
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
 } from "@/hooks/useNotifications";
+import {
+	CONVERSATION_STORE_KEY,
+	ConversationStore,
+	getConversationKey,
+	mapMessagesForViewer,
+	getLastActivityTimestamp,
+	formatLastActivity,
+	buildAccountThreadId,
+	CONVERSATION_REQUESTS_KEY,
+	ConversationRequestStore,
+	getConversationRequest,
+	upsertConversationRequest,
+} from "@/utils/messaging";
 
 function cloneMentorThreads(): Person[] {
 	return mentors.map((mentor) => ({
@@ -31,10 +48,17 @@ export default function StudentMentorDirectoryPage() {
 		[currentEmail]
 	);
 	const [search, setSearch] = useStoredState<string>(`${storagePrefix}:search`, "");
-	const [threads, setThreads] = useStoredState<Person[]>(
+	const [localThreads, setLocalThreads] = useStoredState<Person[]>(
 		`user:${currentEmail}:studentMessages:threads`,
 		() => cloneMentorThreads()
 	);
+	const [conversationStore] = useStoredState<ConversationStore>(
+		CONVERSATION_STORE_KEY,
+		() => ({} as ConversationStore)
+	);
+	const [conversationRequests, setConversationRequests] =
+		useStoredState<ConversationRequestStore>(CONVERSATION_REQUESTS_KEY, () => ({} as ConversationRequestStore));
+	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
 	const navigate = useNavigate();
 	const { addNotification: addStudentNotification } = useNotifications("student");
 	const studentDisplayName = React.useMemo(
@@ -42,17 +66,65 @@ export default function StudentMentorDirectoryPage() {
 		[]
 	);
 
+	const mentorAccounts = React.useMemo(
+		() =>
+			allAccounts.filter(
+				(account) => account.role === "mentor" && account.email !== currentEmail
+			),
+		[allAccounts, currentEmail]
+	);
+
+	const dynamicMentors = React.useMemo(() => {
+		if (!currentEmail) {
+			return [] as Person[];
+		}
+
+	return mentorAccounts.map((mentorAccount) => {
+			const key = getConversationKey(currentEmail, mentorAccount.email);
+			const thread = conversationStore[key];
+			const conversation = mapMessagesForViewer(thread, currentEmail);
+			const lastActivity = getLastActivityTimestamp(thread);
+			const hasConnected = conversation.length > 0;
+			const name = getDisplayNameForAccount(mentorAccount) ?? mentorAccount.email;
+
+		return {
+			id: buildAccountThreadId(mentorAccount.email, "mentor"),
+			name,
+			type: mentorAccount.profile?.mentorType === "teacher" ? "teacher" : "peer",
+			matchedWithUser: false,
+			hasConnected,
+				requestedCommunication: false,
+				bio:
+					mentorAccount.profile?.mentorBio?.trim() ||
+					mentorAccount.profile?.bio?.trim() ||
+					`${name} is available to mentor other students.`,
+				profilePicture: profilePicture,
+				email: mentorAccount.email,
+				conversation,
+				lastMessage: formatLastActivity(lastActivity),
+				lastMessageUnix: lastActivity,
+			} as Person;
+		});
+	}, [conversationStore, mentorAccounts, currentEmail]);
+
+	const availableMentors = React.useMemo(() => {
+		const map = new Map<number, Person>();
+		localThreads.forEach((mentor) => map.set(mentor.id, mentor));
+		dynamicMentors.forEach((mentor) => map.set(mentor.id, mentor));
+		return [...map.values()];
+	}, [localThreads, dynamicMentors]);
+
 	const mentorSlug = Number(useParams()["last-selected"]);
 
 	const filtered = React.useMemo<Person[]>(() => {
 		const q = search.trim().toLowerCase();
 		if (!q) {
-			return mentors;
+			return availableMentors;
 		}
-		return mentors.filter(
+		return availableMentors.filter(
 			(p) => p.name.toLowerCase().includes(q) || p.bio.toLowerCase().includes(q)
 		);
-	}, [search]);
+	}, [search, availableMentors]);
 
 	return (
 		<main className="flex-1 p-8 h-full">
@@ -83,10 +155,16 @@ export default function StudentMentorDirectoryPage() {
 					<div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 						{filtered.map((m) => {
 							const storedMentor =
-								threads.find((thread) => thread.id === m.id) ?? m;
+								localThreads.find((thread) => thread.id === m.id) ?? m;
+							const requestFromStore =
+								currentEmail && m.email
+									? getConversationRequest(conversationRequests, currentEmail, m.email)
+									: undefined;
 							const isRequested =
-								Boolean(storedMentor.requestedCommunication) &&
-								!storedMentor.hasConnected;
+								Boolean(requestFromStore) ||
+								Boolean(storedMentor.requestedCommunication && !storedMentor.hasConnected);
+							const buttonDisabled = isRequested;
+							const buttonLabel = isRequested ? "Requested" : "Request Chat";
 
 							return (
 								<Card
@@ -95,7 +173,7 @@ export default function StudentMentorDirectoryPage() {
 									<div>
 										<CardHeader className="flex items-center space-x-3">
 											<img
-												src={profilePicture}
+												src={m.profilePicture || profilePicture}
 												alt={m.name}
 												className="w-12 h-12 rounded-full object-cover border"
 											/>
@@ -119,13 +197,17 @@ export default function StudentMentorDirectoryPage() {
 									</div>
 									<CardFooter className="mt-auto flex justify-start">
 										<Button
-											size="sm"
-											variant={isRequested ? "outline" : "default"}
-											onClick={() => {
+												size="sm"
+												variant={isRequested ? "outline" : "default"}
+												onClick={() => {
+												if (buttonDisabled) {
+													return;
+												}
+
 												const nowStr = new Date().toLocaleString();
 												const nowUnix = Date.now();
 
-												setThreads((prev) =>
+												setLocalThreads((prev) =>
 													prev.map((thread) =>
 														thread.id === m.id
 															? {
@@ -138,13 +220,14 @@ export default function StudentMentorDirectoryPage() {
 													)
 												);
 
-												const selectedMentor = mentors.find(
-													(mentor) => mentor.id === m.id
-												);
-												if (selectedMentor) {
-													selectedMentor.requestedCommunication = true;
-													selectedMentor.lastMessage = nowStr;
-													selectedMentor.lastMessageUnix = nowUnix;
+												if (currentEmail && m.email) {
+													setConversationRequests((prev) =>
+														upsertConversationRequest(prev, {
+															initiator: currentEmail,
+															recipient: m.email!,
+															direction: "student_to_mentor",
+														})
+													);
 												}
 
 												addStudentNotification({
@@ -152,12 +235,18 @@ export default function StudentMentorDirectoryPage() {
 													type: "request",
 													contextId: m.id,
 												});
+												const studentRouteId =
+													currentEmail
+														? buildAccountThreadId(currentEmail, "student")
+														: m.id;
 												pushNotificationToOtherRole(
 													"mentor",
 													`${studentDisplayName} requested to connect with you.`,
 													{
 														type: "request",
-														contextId: m.id,
+														contextId: studentRouteId ?? m.id,
+														link: `/mentor/home/messages/${studentRouteId ?? m.id}`,
+														email: m.email,
 													}
 												);
 
@@ -165,9 +254,9 @@ export default function StudentMentorDirectoryPage() {
 											}}
 											aria-label={`Start chat with ${m.name}`}
 											className="gap-2"
-											disabled={isRequested}>
+											disabled={buttonDisabled}>
 											<MessageCircle className="h-4 w-4" />
-											{isRequested ? "Requested" : "Request Chat"}
+											{buttonLabel}
 										</Button>
 									</CardFooter>
 								</Card>

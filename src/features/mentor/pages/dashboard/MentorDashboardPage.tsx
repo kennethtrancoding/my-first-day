@@ -1,3 +1,4 @@
+import * as React from "react";
 import { ArrowRight, MessageCircle, ClipboardList, Map as MapIcon, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -6,14 +7,119 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { upcomingEvents, featuredClubs } from "@/constants";
-import { students } from "@/people";
+import { upcomingEvents } from "@/constants";
+import { useTeacherClubs } from "@/hooks/useTeacherCollections";
+import { useStoredState } from "@/hooks/useStoredState";
+import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";
+import {
+	CONVERSATION_STORE_KEY,
+	ConversationStore,
+	getConversationKey,
+	getLastActivityTimestamp,
+	formatLastActivity,
+	CONVERSATION_REQUESTS_KEY,
+	ConversationRequestStore,
+	getConversationRequest,
+	normalizeEmail,
+} from "@/utils/messaging";
 
 const MentorDashboardPage = () => {
 	const navigate = useNavigate();
+	const [clubs] = useTeacherClubs();
+	const currentEmail = React.useMemo(() => {
+		const email = getCurrentEmail();
+		return email ? email : null;
+	}, []);
+	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
+	const [conversationStore] = useStoredState<ConversationStore>(
+		CONVERSATION_STORE_KEY,
+		() => ({} as ConversationStore)
+	);
+	const [conversationRequests] = useStoredState<ConversationRequestStore>(
+		CONVERSATION_REQUESTS_KEY,
+		() => ({} as ConversationRequestStore)
+	);
+	const featuredClubs = React.useMemo(() => clubs.filter((club) => club.featured), [clubs]);
 
-	const pendingStudents = students.filter((student) => !student.assignedToMentor);
-	const activeStudents = students.filter((student) => student.assignedToMentor);
+	const relevantStudents = React.useMemo(() => {
+		if (!currentEmail) {
+			return [] as Array<{
+				id: number;
+				name: string;
+				grade?: number;
+				bio: string;
+				requestedCommunication: boolean;
+				hasConnected: boolean;
+				lastMessage: string;
+				lastMessageUnix: number;
+			}>;
+		}
+
+		const normalizedCurrent = normalizeEmail(currentEmail);
+		const students = allAccounts
+			.filter(
+				(account) =>
+					account.role === "student" &&
+					normalizeEmail(account.email) !== normalizedCurrent
+			)
+			.map((studentAccount) => {
+				const displayName =
+					getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
+				const gradeValue = Number.parseInt(studentAccount.profile?.grade ?? "", 10);
+				const grade = Number.isNaN(gradeValue) ? undefined : gradeValue;
+				const bio =
+					studentAccount.profile?.bio?.trim() ||
+					`${displayName} recently joined My First Day.`;
+
+				const key = getConversationKey(currentEmail, studentAccount.email);
+				const thread = conversationStore[key];
+				const lastActivity = getLastActivityTimestamp(thread);
+				const hasConnected = Boolean(thread?.messages?.length);
+				const request = getConversationRequest(
+					conversationRequests,
+					studentAccount.email,
+					currentEmail
+				);
+				const requestedCommunication =
+					Boolean(
+						request &&
+							request.direction === "student_to_mentor" &&
+							request.initiator === normalizeEmail(studentAccount.email)
+					) && !hasConnected;
+				const requestTimestamp = request?.createdAt ?? 0;
+
+				return {
+					id: studentAccount.id,
+					name: displayName,
+					grade,
+					bio,
+					requestedCommunication,
+					hasConnected,
+					lastMessage: hasConnected
+						? formatLastActivity(lastActivity)
+						: request
+						? new Date(requestTimestamp).toLocaleString()
+						: "No activity yet",
+					lastMessageUnix: hasConnected ? lastActivity ?? 0 : requestTimestamp,
+				};
+			})
+			.filter((student) => student.requestedCommunication || student.hasConnected)
+			.sort((a, b) => b.lastMessageUnix - a.lastMessageUnix);
+
+		return students;
+	}, [allAccounts, conversationRequests, conversationStore, currentEmail]);
+
+	const pendingStudents = React.useMemo(
+		() =>
+			relevantStudents.filter(
+				(student) => student.requestedCommunication && !student.hasConnected
+			),
+		[relevantStudents]
+	);
+	const activeStudents = React.useMemo(
+		() => relevantStudents.filter((student) => student.hasConnected),
+		[relevantStudents]
+	);
 
 	return (
 		<MentorDashboardLayout activePage="home">

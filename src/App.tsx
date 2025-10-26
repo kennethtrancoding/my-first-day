@@ -34,6 +34,9 @@ import TeacherDashboardPage from "@/features/teacher/pages/dashboard/TeacherDash
 import TeacherResourceManagerPage from "@/features/teacher/pages/resources/TeacherResourceManagerPage";
 import TeacherMapEditorPage from "@/features/teacher/pages/map/TeacherMapEditorPage";
 import TeacherMapCoordinatesEditor from "./features/teacher/pages/map/TeacherMapCoordinatesEditor";
+import TeacherMessagingLayout from "@/features/teacher/pages/messaging/TeacherMessagingLayout";
+import TeacherNewClubCreator from "./features/teacher/pages/resources/TeacherNewClubCreator";
+import TeacherNewElectiveCreator from "./features/teacher/pages/resources/TeacherNewElectiveCategoryCreator";
 
 const queryClient = new QueryClient();
 
@@ -123,10 +126,22 @@ function App() {
 								path="/teacher/home/resources/"
 								element={<TeacherResourceManagerPage />}
 							/>
+							<Route
+								path="/teacher/home/resources/new-club/"
+								element={<TeacherNewClubCreator />}
+							/>
+							<Route
+								path="/teacher/home/resources/new-elective-category/"
+								element={<TeacherNewElectiveCreator />}
+							/>
 							<Route path="/teacher/home/map/" element={<TeacherMapEditorPage />} />
 							<Route
 								path="/teacher/home/map/coordinates/"
 								element={<TeacherMapCoordinatesEditor />}
+							/>
+							<Route
+								path="/teacher/home/messages/:id?/"
+								element={<TeacherMessagingLayout />}
 							/>
 
 							<Route path="*" element={<NotFoundPage />} />

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, MapPin, Search, Users } from "lucide-react";
 
 import MentorDashboardLayout from "@/features/mentor/components/MentorDashboardLayout";
-import { clubDirectory } from "@/constants";
+import { useTeacherClubs } from "@/hooks/useTeacherCollections";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,15 +36,17 @@ const MentorClubDirectoryPage = () => {
 		"All"
 	);
 
+	const [clubs] = useTeacherClubs();
+
 	const categories = React.useMemo(() => {
-		const unique = new Set(clubDirectory.map((club) => club.category));
+		const unique = new Set(clubs.map((club) => club.category));
 		return ["All", ...Array.from(unique)];
-	}, []);
+	}, [clubs]);
 
 	const filteredClubs = React.useMemo(() => {
 		const normalizedQuery = searchTerm.trim().toLowerCase();
 
-		return clubDirectory.filter((club) => {
+		return clubs.filter((club) => {
 			const matchesCategory =
 				selectedCategory === "All" || club.category === selectedCategory;
 
@@ -69,7 +71,7 @@ const MentorClubDirectoryPage = () => {
 
 			return searchableContent.includes(normalizedQuery);
 		});
-	}, [searchTerm, selectedCategory]);
+	}, [clubs, searchTerm, selectedCategory]);
 
 	return (
 		<MentorDashboardLayout activePage="clubs">

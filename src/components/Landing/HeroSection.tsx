@@ -12,7 +12,7 @@ const highlights = [
 
 const HeroSection = () => {
 	return (
-		<section className="relative flex min-h-screen items-center overflow-hidden bg-gradient-hero">
+		<section className="relative flex min-h-screen items-center overflow-hidden bg-gradient-hero pt-24 pb-12 md:pt-32">
 			<div className="absolute inset-0 bg-black/25" />
 			<div
 				className="pointer-events-none absolute -top-32 -left-20 h-80 w-80 rounded-full bg-white/15 blur-3xl"

@@ -1,10 +1,34 @@
-import { useEffect, useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { findAccount, registerAccount, setCurrentEmail, type StoredAccount } from "@/utils/auth";
 
+interface GoogleCredentialResponse {
+	credential?: string;
+}
+
+type GoogleButtonTheme = "outline" | "filled_blue" | "filled_black";
+type GoogleButtonSize = "large" | "medium" | "small";
+
+interface GoogleButtonRenderOptions {
+	theme?: GoogleButtonTheme;
+	size?: GoogleButtonSize;
+	width?: number;
+}
+
+interface GoogleAccountsId {
+	initialize(options: { client_id: string; callback: (response: GoogleCredentialResponse) => void }): void;
+	renderButton(element: HTMLElement, options?: GoogleButtonRenderOptions): void;
+}
+
+interface GoogleIdentityClient {
+	accounts: {
+		id: GoogleAccountsId;
+	};
+}
+
 declare global {
 	interface Window {
-		google?: any;
+		google?: GoogleIdentityClient;
 	}
 }
 
@@ -39,6 +63,16 @@ function decodeCredentialEmail(credential?: string) {
 export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInProps) {
 	const navigate = useNavigate();
 	const buttonContainerId = useId();
+	const onSuccessRef = useRef(onSuccess);
+	const onErrorRef = useRef(onError);
+
+	useEffect(() => {
+		onSuccessRef.current = onSuccess;
+	}, [onSuccess]);
+
+	useEffect(() => {
+		onErrorRef.current = onError;
+	}, [onError]);
 
 	useEffect(() => {
 		const clientId = "412451533645-tgmjdta1gpbmrgppo7bkogon9uslfm2j.apps.googleusercontent.com";
@@ -70,25 +104,25 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 		const initialize = () => {
 			window.google?.accounts.id.initialize({
 				client_id: clientId,
-				callback: (response: any) => {
+				callback: (response: GoogleCredentialResponse) => {
 					const email = decodeCredentialEmail(response?.credential);
 					if (!email) {
-						onError?.("We could not read your Google account. Try again.");
+						onErrorRef.current?.("We could not read your Google account. Try again.");
 						return;
 					}
 
 					if (type === "login") {
 						const account = findAccount(email);
 						if (!account) {
-							onError?.(
+							onErrorRef.current?.(
 								"No account found for your Google email. Create an account to continue."
 							);
 							return;
 						}
 
 						setCurrentEmail(account.email);
-						onSuccess?.(account);
-						if (!onSuccess) {
+						onSuccessRef.current?.(account);
+						if (!onSuccessRef.current) {
 							const hasCompletedOnboarding = account.wentThroughOnboarding === true;
 							let destination = "/onboarding/";
 
@@ -109,7 +143,7 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 					if (type === "signup") {
 						const existing = findAccount(email);
 						if (existing) {
-							onError?.("An account with this email already exists. Log in instead.");
+							onErrorRef.current?.("An account with this email already exists. Log in instead.");
 							return;
 						}
 
@@ -119,12 +153,12 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 						});
 
 						if (!account) {
-							onError?.("We could not create your account. Try again.");
+							onErrorRef.current?.("We could not create your account. Try again.");
 							return;
 						}
 
-						onSuccess?.(account);
-						if (!onSuccess) {
+						onSuccessRef.current?.(account);
+						if (!onSuccessRef.current) {
 							navigate("/verification/", { replace: true });
 						}
 					}
@@ -153,7 +187,7 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 		return () => {
 			script.removeEventListener("load", initialize);
 		};
-	}, [buttonContainerId, navigate, onError, onSuccess, type]);
+	}, [buttonContainerId, navigate, type]);
 
 	return <div id={buttonContainerId}></div>;
 }

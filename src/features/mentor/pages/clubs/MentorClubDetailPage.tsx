@@ -2,7 +2,7 @@ import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Calendar, Mail, MapPin, Users } from "lucide-react";
 import MentorDashboardLayout from "@/features/mentor/components/MentorDashboardLayout";
-import { clubDirectory } from "@/constants";
+import { useTeacherClubs } from "@/hooks/useTeacherCollections";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,9 +20,10 @@ const MentorClubDetailPage = () => {
 	const navigate = useNavigate();
 	const { clubSlug } = useParams<{ clubSlug: string }>();
 
+	const [clubs] = useTeacherClubs();
 	const club = React.useMemo(
-		() => clubDirectory.find((item) => item.slug === clubSlug),
-		[clubSlug]
+		() => clubs.find((item) => item.slug === clubSlug),
+		[clubSlug, clubs]
 	);
 
 	React.useEffect(() => {
@@ -43,13 +44,6 @@ const MentorClubDetailPage = () => {
 			</MentorDashboardLayout>
 		);
 	}
-
-	const advisorId = club.advisorProfile?.id;
-	const openAdvisorMessages = () => {
-		const target =
-			advisorId != null ? `/mentor/home/messages/${advisorId}/` : "/mentor/home/messages/";
-		navigate(target);
-	};
 
 	return (
 		<MentorDashboardLayout activePage="clubs">
@@ -171,18 +165,11 @@ const MentorClubDetailPage = () => {
 										<Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
 										<div>
 											<p className="font-medium">Contact</p>
-											<Button
-												variant="link"
-												className="h-auto p-0 text-left text-muted-foreground"
-												onClick={openAdvisorMessages}>
+											<p className="h-auto p-0 text-left text-muted-foreground">
 												{club.contactEmail}
-											</Button>
+											</p>
 										</div>
 									</div>
-									<Separator />
-									<Button className="w-full" onClick={openAdvisorMessages}>
-										Message the Advisor
-									</Button>
 								</CardContent>
 							</Card>
 

@@ -17,8 +17,8 @@ const StudentElectivesPage = () => {
 							Bell Schedule & Calendar
 						</p>
 						<p className="text-sm text-muted-foreground">
-							Need to cross-check elective times? Download the current bell schedule
-							and district calendar.
+							Need to cross-check elective times? See the current bell schedule and
+							district calendar.
 						</p>
 					</div>
 

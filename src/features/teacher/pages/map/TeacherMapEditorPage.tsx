@@ -126,12 +126,6 @@ function TeacherMapEditorPage() {
 		}));
 	}
 
-	function handleResetAll() {
-		setRooms(buildingCoords.map((r) => ({ ...r })));
-		clearNotes();
-		setDraft(EMPTY_DRAFT);
-	}
-
 	return (
 		<TeacherDashboardLayout activePage="map">
 			<div className="grid gap-6 lg:grid-cols:[260px_1fr] lg:grid-cols-[260px_1fr]">
@@ -177,27 +171,12 @@ function TeacherMapEditorPage() {
 											<span className="text-xs text-muted-foreground">
 												{room.type ?? "Unlabeled space"}
 											</span>
-											{hasCustom && (
-												<span className="text-[10px] uppercase tracking-wide text-primary">
-													Customized
-												</span>
-											)}
 										</button>
 									);
 								})}
 							</div>
 						</ScrollArea>
 					</CardContent>
-					<CardFooter className="flex flex-col gap-2">
-						<Button
-							variant="ghost"
-							className="text-destructive"
-							onClick={handleResetAll}
-							disabled={rooms.length === 0}
-							title="Reset all labels to the original seed data and clear staff notes">
-							Reset all labels to default
-						</Button>
-					</CardFooter>
 				</Card>
 
 				{selectedRoom && effectiveRoom ? (
@@ -268,7 +247,7 @@ function TeacherMapEditorPage() {
 							</div>
 						</CardContent>
 						<CardFooter className="flex flex-wrap gap-2">
-							<Button onClick={handleSave}>Save changes</Button>
+							<Button onClick={handleSave}>Save Changes</Button>
 						</CardFooter>
 					</Card>
 				) : (
@@ -280,7 +259,7 @@ function TeacherMapEditorPage() {
 				)}
 			</div>
 			<Button className="mt-4" onClick={() => navigate("/teacher/home/map/coordinates/")}>
-				Edit room coordinates <ArrowRight size={16} className="ml-2" />
+				Edit Map <ArrowRight size={16} className="ml-2" />
 			</Button>
 		</TeacherDashboardLayout>
 	);

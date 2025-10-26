@@ -1,18 +1,17 @@
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import MentorDashboardSidebar from "@/features/mentor/components/MentorDashboardSidebar";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { students, Message, Student } from "@/people";
-import { useParams, useNavigate } from "react-router-dom";
+import TeacherDashboardLayout from "@/features/teacher/components/TeacherDashboardLayout";
+import { students, type Message, type Student } from "@/people";
+import { useNavigate, useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
 import {
-	StoredAccount,
 	findAccount,
 	getCurrentEmail,
+	type StoredAccount,
 	getDisplayNameForAccount,
 } from "@/utils/auth";
 import {
@@ -20,14 +19,14 @@ import {
 	getDisplayNameForCurrentAccount,
 } from "@/hooks/useNotifications";
 import {
-	CONVERSATION_STORE_KEY,
-	ConversationStore,
 	appendConversationMessage,
-	getConversationKey,
-	mapMessagesForViewer,
-	getLastActivityTimestamp,
-	formatLastActivity,
 	buildAccountThreadId,
+	CONVERSATION_STORE_KEY,
+	type ConversationStore,
+	formatLastActivity,
+	getConversationKey,
+	getLastActivityTimestamp,
+	mapMessagesForViewer,
 	CONVERSATION_REQUESTS_KEY,
 	ConversationRequestStore,
 	getConversationRequest,
@@ -53,40 +52,12 @@ function cloneStudentThreads(): Student[] {
 	}));
 }
 
-function MentorMessagingLayout() {
+function TeacherMessagingLayout() {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => {
-		const raw = getCurrentEmail();
-		return raw ? raw : null;
-	}, []);
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
-		[currentEmail]
-	);
-	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
-	const shouldRedirectOnboarding = React.useMemo(
-		() =>
-			Boolean(
-				currentEmail &&
-					account &&
-					account.role === "mentor" &&
-					account.wentThroughOnboarding !== true
-			),
-		[account, currentEmail]
-	);
-	const shouldRedirectHome = React.useMemo(
-		() => !currentEmail || !account || account.role !== "mentor",
-		[account, currentEmail]
-	);
-	const isAuthorized = React.useMemo(
-		() =>
-			Boolean(currentEmail && account && account.role === "mentor" && hasCompletedOnboarding),
-		[account, currentEmail, hasCompletedOnboarding]
-	);
-
-	const storageIdentity = currentEmail ?? "anonymous-mentor";
+	const currentEmail = React.useMemo(() => getCurrentEmail() ?? null, []);
+	const storageIdentity = currentEmail ?? "anonymous-teacher";
 	const storagePrefix = React.useMemo(
-		() => `user:${storageIdentity}:mentorMessages`,
+		() => `user:${storageIdentity}:teacherMessages`,
 		[storageIdentity]
 	);
 
@@ -105,9 +76,8 @@ function MentorMessagingLayout() {
 	);
 	const [composer, setComposer] = useStoredState<string>(`${storagePrefix}:composer`, "");
 	const [search, setSearch] = useStoredState<string>(`${storagePrefix}:search`, "");
-
-	const [showAllPending, setShowAllPending] = useStoredState<boolean>(
-		`${storagePrefix}:showAllPending`,
+	const [showAllNew, setShowAllNew] = useStoredState<boolean>(
+		`${storagePrefix}:showAllNew`,
 		false
 	);
 	const [showAllActive, setShowAllActive] = useStoredState<boolean>(
@@ -119,20 +89,20 @@ function MentorMessagingLayout() {
 			CONVERSATION_REQUESTS_KEY,
 			() => ({} as ConversationRequestStore)
 		);
-	const ROW_LIMIT = 6;
-	const mentorDisplayName = React.useMemo(
-		() => getDisplayNameForCurrentAccount() ?? "Your mentor",
-		[]
-	);
 
 	const { id: routeId } = useParams<{ id?: string }>();
+	const teacherDisplayName = React.useMemo(
+		() => getDisplayNameForCurrentAccount() ?? "A teacher",
+		[]
+	);
+	const ROW_LIMIT = 6;
 
 	const studentAccounts = React.useMemo(
 		() =>
 			allAccounts.filter(
-				(account) => account.role === "student" && account.email !== currentEmail
+				(acc) => acc.role === "student" && acc.email && acc.email !== currentEmail
 			),
-		[currentEmail, allAccounts]
+		[allAccounts, currentEmail]
 	);
 
 	const dynamicStudentThreads = React.useMemo(() => {
@@ -141,23 +111,18 @@ function MentorMessagingLayout() {
 		}
 
 		return studentAccounts.map((studentAccount) => {
-			const key = getConversationKey(currentEmail, studentAccount.email);
+			const key = getConversationKey(currentEmail, studentAccount.email!);
 			const thread = conversationStore[key];
 			const conversation = mapMessagesForViewer(thread, currentEmail);
 			const lastActivity = getLastActivityTimestamp(thread);
 			const hasConnected = conversation.length > 0;
-			const displayName = getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
+			const displayName = getDisplayNameForAccount(studentAccount) ?? studentAccount.email!;
 			const parsedGrade = Number.parseInt(studentAccount.profile?.grade ?? "", 10);
-			const matchedMentors = studentAccount.profile?.matchedMentorIds ?? [];
-			const isAssignedToCurrentMentor = Boolean(
-				account && matchedMentors.some((match) => match.mentor.id === (account?.id ?? -1))
-			);
 			return {
-				id: buildAccountThreadId(studentAccount.email, "student"),
+				id: buildAccountThreadId(studentAccount.email!, "student"),
 				name: displayName,
 				grade: Number.isNaN(parsedGrade) ? undefined : parsedGrade,
-				assignedToMentor: isAssignedToCurrentMentor,
-
+				assignedToMentor: hasConnected,
 				hasConnected,
 				requestedCommunication: false,
 				bio:
@@ -170,7 +135,7 @@ function MentorMessagingLayout() {
 				lastMessageUnix: lastActivity,
 			} as Student;
 		});
-	}, [conversationStore, studentAccounts, currentEmail, account]);
+	}, [conversationStore, studentAccounts, currentEmail]);
 
 	const threads = React.useMemo(() => {
 		const merged = new Map<number, Student>();
@@ -195,21 +160,8 @@ function MentorMessagingLayout() {
 			}
 			return thread;
 		});
-		return decorated
-			.filter((thread) => thread.hasConnected || thread.requestedCommunication)
-			.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
+		return decorated.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
 	}, [dynamicStudentThreads, localThreads, conversationRequests, currentEmail]);
-
-	React.useEffect(() => {
-		if (shouldRedirectOnboarding) {
-			navigate("/onboarding/", { replace: true });
-			return;
-		}
-
-		if (!isAuthorized || shouldRedirectHome) {
-			navigate("/", { replace: true });
-		}
-	}, [isAuthorized, navigate, shouldRedirectHome, shouldRedirectOnboarding]);
 
 	React.useEffect(() => {
 		if (routeId) {
@@ -220,16 +172,17 @@ function MentorMessagingLayout() {
 			}
 		}
 		setSelectedId((prev) => (prev == null && threads.length ? threads[0].id : prev));
-	}, [routeId, threads, setSelectedId]);
+	}, [routeId, threads]);
 
 	React.useEffect(() => {
-		if (selectedId != null && !threads.some((p) => p.id === selectedId)) {
+		if (selectedId != null && !threads.some((student) => student.id === selectedId)) {
 			setSelectedId(threads[0]?.id ?? null);
 		}
-	}, [threads, selectedId, setSelectedId]);
+	}, [selectedId, threads]);
 
 	const selected = React.useMemo(
-		() => (selectedId == null ? undefined : threads.find((p) => p.id === selectedId)),
+		() =>
+			selectedId == null ? undefined : threads.find((student) => student.id === selectedId),
 		[threads, selectedId]
 	);
 
@@ -241,7 +194,7 @@ function MentorMessagingLayout() {
 	function openChat(studentId: number) {
 		if (studentId !== selectedId) {
 			setSelectedId(studentId);
-			navigate(`/mentor/home/messages/${studentId}`, { replace: false });
+			navigate(`/teacher/home/messages/${studentId}`, { replace: false });
 		}
 	}
 
@@ -291,7 +244,7 @@ function MentorMessagingLayout() {
 			? buildAccountThreadId(currentEmail, "mentor")
 			: selectedId;
 
-		pushNotificationToOtherRole("student", `${mentorDisplayName} sent you a new message.`, {
+		pushNotificationToOtherRole("student", `${teacherDisplayName} sent you a new message.`, {
 			type: "message",
 			contextId: studentRouteId,
 			link: `/student/home/messages/${studentRouteId ?? selectedId}`,
@@ -312,26 +265,32 @@ function MentorMessagingLayout() {
 		const q = search.trim().toLowerCase();
 		if (!q) return threads;
 		return threads.filter(
-			(p) =>
-				p.name.toLowerCase().includes(q) ||
-				(p.bio ?? "").toLowerCase().includes(q) ||
-				p.conversation.some((m) => m.text.toLowerCase().includes(q))
+			(student) =>
+				student.name.toLowerCase().includes(q) ||
+				(student.bio ?? "").toLowerCase().includes(q) ||
+				student.conversation.some((message) => message.text.toLowerCase().includes(q))
 		);
-	}, [threads, search]);
+	}, [search, threads]);
 
-	const pendingRequests = filtered.filter((p) => p.requestedCommunication && !p.hasConnected);
-	const activeStudents = filtered.filter((p) => p.hasConnected);
+	const newStudents = filtered.filter(
+		(student) => student.requestedCommunication && !student.hasConnected
+	);
+	const activeStudents = filtered.filter(
+		(student) => !student.requestedCommunication || student.hasConnected
+	);
 
 	function ListGroup({
 		title,
 		items,
 		showAll,
 		onToggle,
+		emptyLabel,
 	}: {
 		title: string;
 		items: Student[];
 		showAll: boolean;
 		onToggle: () => void;
+		emptyLabel: string;
 	}) {
 		const visible = showAll ? items : items.slice(0, ROW_LIMIT);
 
@@ -342,16 +301,16 @@ function MentorMessagingLayout() {
 						{title}
 					</h4>
 					{items.length > ROW_LIMIT && (
-						<Button variant="ghost" size="sm" className="h-7 px-2" onClick={onToggle}>
-							{showAll ? "Show Less" : "Show All"}
+						<Button variant="ghost" size="sm" className="text-xs" onClick={onToggle}>
+							{showAll ? "Show less" : "Show all"}
 						</Button>
 					)}
 				</div>
-				<ul className="divide-y">
+				<ul className="space-y-1">
 					{visible.map((student) => (
 						<li
 							key={student.id}
-							className={`py-2 px-2 rounded-md cursor-pointer hover:bg-muted/60 flex items-start gap-3 ${
+							className={`flex gap-3 rounded-lg p-2 cursor-pointer transition hover:bg-muted/70 ${
 								student.id === selectedId ? "bg-muted" : ""
 							} items-center`}
 							onClick={() => openChat(student.id)}>
@@ -365,126 +324,106 @@ function MentorMessagingLayout() {
 										</span>
 									)}
 								</div>
-								<p className="text-[11px] text-muted-foreground truncate">
-									{student.requestedCommunication && !student.hasConnected
-										? "Request pending"
-										: student.assignedToMentor
-										? "Assigned"
-										: "Awaiting approval"}
-								</p>
 							</div>
 						</li>
 					))}
 					{!items.length && (
-						<li className="py-3 text-sm text-muted-foreground">No students yet</li>
+						<li className="py-3 text-sm text-muted-foreground">{emptyLabel}</li>
 					)}
 				</ul>
 			</div>
 		);
 	}
 
-	if (!isAuthorized) {
-		return null;
-	}
-
 	return (
-		<SidebarProvider>
-			<MentorDashboardSidebar activePage="messages" />
-			<main className="flex-1 p-8 h-full">
-				<div className="flex flex-col md:flex-row gap-6 max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-4rem)]">
-					<section className="flex-1 min-w-0 flex flex-col">
-						<Card className="flex-1 flex flex-col">
-							<CardHeader>
-								<h3 className="flex text-lg font-semibold gap-3 items-center">
-									<SidebarTrigger />
-									{selected?.name ?? "Messages"}
-								</h3>
-							</CardHeader>
+		<TeacherDashboardLayout activePage="messages">
+			<div className="flex flex-col md:flex-row gap-6 max-h-[calc(100vh-8rem)]">
+				<section className="flex-1 min-w-0 flex flex-col">
+					<Card className="flex-1 flex flex-col">
+						<CardHeader>
+							<h3 className="text-lg font-semibold">
+								{selected?.name ?? "Select a student to start chatting"}
+							</h3>
+						</CardHeader>
+						<CardContent className="flex-1 flex flex-col p-0">
+							<ScrollArea className="flex-1 p-4">
+								<div className="space-y-3 flex flex-col">
+									{selected?.conversation?.map((message) => (
+										<div
+											key={message.id}
+											className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
+												message.from === "in"
+													? "bg-muted text-foreground self-start"
+													: "bg-primary text-primary-foreground self-end ml-auto"
+											}`}>
+											{message.text}
+										</div>
+									))}
+									<div ref={endRef} />
+								</div>
+							</ScrollArea>
+							<div className="p-4 border-t bg-card mt-auto sticky bottom-0">
+								<div className="flex gap-2">
+									<textarea
+										rows={1}
+										className="flex-1 rounded-md border border-input p-2 resize-none"
+										placeholder={
+											selected?.name
+												? `Message ${selected.name}`
+												: "Select a student to start a conversation"
+										}
+										value={composer}
+										onChange={(event) => setComposer(event.target.value)}
+										onKeyDown={handleKeyDown}
+									/>
+									<Button onClick={sendMessage} disabled={!composer.trim()}>
+										Send
+									</Button>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+				</section>
 
-							<CardContent className="flex-1 flex flex-col p-0">
-								<ScrollArea className="flex-1 p-4">
-									<div className="space-y-3 flex flex-col">
-										{selected?.conversation?.map((message) => (
-											<div
-												key={message.id}
-												className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
-													message.from === "in"
-														? "bg-muted text-foreground self-start"
-														: "bg-primary text-primary-foreground self-end ml-auto"
-												}`}>
-												{message.text}
-											</div>
-										))}
-										<div ref={endRef} />
+				<aside className="w-full md:w-[360px] max-h-[calc(100vh-8rem)]">
+					<Card className="flex-1 flex flex-col">
+						<CardHeader>
+							<h3 className="text-lg font-semibold">Students</h3>
+						</CardHeader>
+						<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+							<div className="p-4 space-y-4">
+								<Input
+									placeholder="Search students & messages"
+									value={search}
+									onChange={(event) => setSearch(event.target.value)}
+								/>
+
+								<ScrollArea className="h-[calc(100vh-20rem)] pr-2">
+									<div className="space-y-6">
+										<ListGroup
+											title="Message requests"
+											items={newStudents}
+											showAll={showAllNew}
+											onToggle={() => setShowAllNew((prev) => !prev)}
+											emptyLabel="No new message requests."
+										/>
+
+										<ListGroup
+											title="Conversations"
+											items={activeStudents}
+											showAll={showAllActive}
+											onToggle={() => setShowAllActive((prev) => !prev)}
+											emptyLabel="Start a conversation to see it here."
+										/>
 									</div>
 								</ScrollArea>
-
-								<div className="p-4 border-t bg-card mt-auto sticky bottom-0">
-									<div className="flex gap-2">
-										<textarea
-											rows={1}
-											className="flex-1 rounded-md border border-input p-2 resize-none"
-											placeholder={
-												selected?.name
-													? `Message ${selected.name}`
-													: "Select a student to start a conversation"
-											}
-											value={composer}
-											onChange={(e) => setComposer(e.target.value)}
-											onKeyDown={handleKeyDown}
-										/>
-										<Button onClick={sendMessage} disabled={!composer.trim()}>
-											Send
-										</Button>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					</section>
-
-					<aside className="w-full md:w-[360px] max-h-[calc(100vh-4rem)]">
-						<Card className="flex-1 flex flex-col">
-							<CardHeader>
-								<h3 className="text-lg font-semibold">Students</h3>
-							</CardHeader>
-							<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-								<div className="p-4 space-y-4">
-									<Input
-										placeholder="Search students & messages"
-										value={search}
-										onChange={(e) => setSearch(e.target.value)}
-									/>
-
-									<ScrollArea className="h-[calc(100vh-20rem)] pr-2">
-										<div className="space-y-6">
-											<ListGroup
-												title="Awaiting Approval"
-												items={pendingRequests}
-												showAll={showAllPending}
-												onToggle={() => setShowAllPending((v) => !v)}
-											/>
-
-											<ListGroup
-												title="Active Connections"
-												items={activeStudents}
-												showAll={showAllActive}
-												onToggle={() => setShowAllActive((v) => !v)}
-											/>
-										</div>
-									</ScrollArea>
-									<div className="pt-2">
-										<Button className="w-full" asChild>
-											<a href="/mentor/home/requests/">Manage Requests</a>
-										</Button>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					</aside>
-				</div>
-			</main>
-		</SidebarProvider>
+							</div>
+						</CardContent>
+					</Card>
+				</aside>
+			</div>
+		</TeacherDashboardLayout>
 	);
 }
 
-export default MentorMessagingLayout;
+export default TeacherMessagingLayout;

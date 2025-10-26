@@ -14,7 +14,7 @@ import SignUp from "@/features/shared/pages/Landing/SignUp";
 import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
 import { interestOptions } from "@/constants";
 import { useNavigate } from "react-router-dom";
-import { Pin } from "lucide-react";
+import { Loader2, Pin } from "lucide-react";
 import {
 	getPendingEmail,
 	getCurrentEmail,
@@ -24,6 +24,7 @@ import {
 	findAccount,
 } from "@/utils/auth";
 import { useStoredState } from "@/hooks/useStoredState";
+import { matchMentorsForStudent } from "@/utils/mentorMatching";
 const SCHOOL_NAME = "Hollencrest Middle School";
 
 function Onboarding() {
@@ -62,6 +63,9 @@ function Onboarding() {
 
 	const [selectedInterests, setSelectedInterests] = React.useState<string[]>([]);
 	const [errorMessage, setErrorMessage] = React.useState<string>("");
+
+	const [isSubmitting, setIsSubmitting] = React.useState(false);
+
 	React.useEffect(() => {
 		setErrorMessage("");
 	}, [currentStep]);
@@ -114,7 +118,7 @@ function Onboarding() {
 		return Number.isNaN(parsed) ? null : parsed;
 	}, [grade]);
 	const isScheduleComplete = React.useMemo(
-		() => schedule.slice(1, -1).every((room) => room.trim().length > 0),
+		() => schedule.slice(1, 7).every((entry) => entry && entry.trim().length > 0),
 		[schedule]
 	);
 
@@ -149,12 +153,13 @@ function Onboarding() {
 		}
 
 		setRole(resolvedRole);
-
-		if (normalizedRole === "mentor") {
-			navigate("/mentor/registration/");
-		} else {
-			navigate("/student/home/");
-		}
+		setTimeout(() => {
+			if (normalizedRole === "mentor") {
+				navigate("/mentor/registration/");
+			} else {
+				navigate("/student/home/");
+			}
+		}, 900);
 	}
 
 	function selectRole(selectedRole: "Student" | "Mentor") {
@@ -187,6 +192,15 @@ function Onboarding() {
 						lastName,
 						grade,
 						interests: selectedInterests,
+						matchedMentorIds: [
+							...matchMentorsForStudent(
+								{
+									grade: parseInt(grade),
+									interests: selectedInterests,
+								},
+								{ limit: 1 }
+							),
+						],
 					},
 				});
 			}
@@ -637,13 +651,15 @@ function Onboarding() {
 							</div>
 						</CardContent>
 						<CardFooter className="w-full flex flex-col gap-2">
-							<Button
-								disabled={!isScheduleComplete}
-								onClick={() => {
-									handleScheduleContinue(false);
-								}}
-								className="w-full">
-								Create Account
+							<Button type="submit" disabled={isSubmitting} className="w-full">
+								{isSubmitting ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Submitting
+									</>
+								) : (
+									"Create Account"
+								)}
 							</Button>
 							{errorNotice}
 

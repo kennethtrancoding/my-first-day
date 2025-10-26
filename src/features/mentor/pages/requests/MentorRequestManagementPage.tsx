@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Search, MessageCircle, CheckCircle2, Clock, Users } from "lucide-react";
 
 import MentorDashboardLayout from "@/features/mentor/components/MentorDashboardLayout";
-import { students, Student } from "@/people";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,66 +16,156 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail } from "@/utils/auth";
+import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";
 import {
 	useNotifications,
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
 } from "@/hooks/useNotifications";
+import {
+	CONVERSATION_STORE_KEY,
+	ConversationStore,
+	appendConversationMessage,
+	getConversationKey,
+	getLastActivityTimestamp,
+	formatLastActivity,
+	CONVERSATION_REQUESTS_KEY,
+	ConversationRequestStore,
+	getConversationRequest,
+	removeConversationRequest,
+	buildAccountThreadId,
+	normalizeEmail,
+} from "@/utils/messaging";
 
 type StatusFilter = "all" | "pending" | "active";
+type StudentStatus = Exclude<StatusFilter, "all">;
 
-function getStatusLabel(student: Student) {
-	if (!student.assignedToMentor) {
+interface MentorStudentRecord {
+	id: number;
+	name: string;
+	email: string;
+	grade?: number;
+	bio: string;
+	requestedCommunication: boolean;
+	hasConnected: boolean;
+	lastMessage: string;
+	lastMessageUnix: number;
+	status: StudentStatus;
+}
+
+function getStatusLabel(student: MentorStudentRecord) {
+	if (student.status === "pending") {
 		return "Awaiting approval";
 	}
 	return student.hasConnected ? "Active connection" : "Approved";
 }
 
-const statusConfig: Record<Exclude<StatusFilter, "all">, (student: Student) => boolean> = {
-	pending: (student) => !student.assignedToMentor,
-	active: (student) => student.assignedToMentor,
+const statusConfig: Record<StudentStatus, (student: MentorStudentRecord) => boolean> = {
+	pending: (student) => student.status === "pending",
+	active: (student) => student.status === "active",
 };
-
-function cloneStudentRecords(): Student[] {
-	return students.map((student) => ({
-		...student,
-		conversation: student.conversation.map((message) => ({ ...message })),
-	}));
-}
 
 const MentorRequestManagementPage = () => {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest-mentor", []);
+	const currentEmail = React.useMemo(() => {
+		const email = getCurrentEmail();
+		return email ? email : null;
+	}, []);
+	const storageIdentity = currentEmail ?? "guest-mentor";
 	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:mentorRequests`,
-		[currentEmail]
+		() => `user:${storageIdentity}:mentorRequests`,
+		[storageIdentity]
 	);
 	const [query, setQuery] = useStoredState<string>(`${storagePrefix}:query`, "");
 	const [statusFilter, setStatusFilter] = useStoredState<StatusFilter>(
 		`${storagePrefix}:statusFilter`,
 		"pending"
 	);
-	const [records, setRecords] = useStoredState<Student[]>(`${storagePrefix}:records`, () =>
-		cloneStudentRecords()
+	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
+	const [conversationStore, setConversationStore] = useStoredState<ConversationStore>(
+		CONVERSATION_STORE_KEY,
+		() => ({} as ConversationStore)
 	);
+	const [conversationRequests, setConversationRequests] =
+		useStoredState<ConversationRequestStore>(
+			CONVERSATION_REQUESTS_KEY,
+			() => ({} as ConversationRequestStore)
+		);
 	const { addNotification: addMentorNotification } = useNotifications("mentor");
 	const mentorDisplayName = React.useMemo(
 		() => getDisplayNameForCurrentAccount() ?? "Your mentor",
 		[]
 	);
 
+	const relevantStudents = React.useMemo(() => {
+		if (!currentEmail) {
+			return [] as MentorStudentRecord[];
+		}
+		const normalizedCurrent = normalizeEmail(currentEmail);
+		return allAccounts
+			.filter(
+				(account) =>
+					account.role === "student" &&
+					normalizeEmail(account.email) !== normalizedCurrent
+			)
+			.map((studentAccount) => {
+				const key = getConversationKey(currentEmail, studentAccount.email);
+				const thread = conversationStore[key];
+				const lastActivity = getLastActivityTimestamp(thread);
+				const hasConnected = Boolean(thread?.messages?.length);
+				const request = getConversationRequest(
+					conversationRequests,
+					studentAccount.email,
+					currentEmail
+				);
+				const requestedCommunication =
+					Boolean(
+						request &&
+							request.direction === "student_to_mentor" &&
+							request.initiator === normalizeEmail(studentAccount.email)
+					) && !hasConnected;
+				if (!requestedCommunication && !hasConnected) {
+					return null;
+				}
+				const gradeValue = Number.parseInt(studentAccount.profile?.grade ?? "", 10);
+				const grade = Number.isNaN(gradeValue) ? undefined : gradeValue;
+				const name = getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
+				const bio =
+					studentAccount.profile?.bio?.trim() || `${name} recently joined My First Day.`;
+				const status: StudentStatus = requestedCommunication ? "pending" : "active";
+				const requestTimestamp = request?.createdAt ?? 0;
+				return {
+					id: buildAccountThreadId(studentAccount.email, "student"),
+					name,
+					email: studentAccount.email,
+					grade,
+					bio,
+					requestedCommunication,
+					hasConnected,
+					status,
+					lastMessage: hasConnected
+						? formatLastActivity(lastActivity)
+						: request
+						? new Date(requestTimestamp).toLocaleString()
+						: "No activity yet",
+					lastMessageUnix: hasConnected ? lastActivity ?? 0 : requestTimestamp,
+				} as MentorStudentRecord;
+			})
+			.filter((student): student is MentorStudentRecord => Boolean(student))
+			.sort((a, b) => b.lastMessageUnix - a.lastMessageUnix);
+	}, [allAccounts, conversationRequests, conversationStore, currentEmail]);
+
 	const pendingCount = React.useMemo(
-		() => records.filter((student) => !student.assignedToMentor).length,
-		[records]
+		() => relevantStudents.filter((student) => student.status === "pending").length,
+		[relevantStudents]
 	);
 	const activeCount = React.useMemo(
-		() => records.filter((student) => student.assignedToMentor).length,
-		[records]
+		() => relevantStudents.filter((student) => student.status === "active").length,
+		[relevantStudents]
 	);
 
 	const filtered = React.useMemo(() => {
-		return records.filter((student) => {
+		return relevantStudents.filter((student) => {
 			const matchesSearch =
 				query.trim().length === 0 ||
 				student.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -87,35 +176,38 @@ const MentorRequestManagementPage = () => {
 
 			return matchesSearch && matchesStatus;
 		});
-	}, [query, statusFilter, records]);
+	}, [query, statusFilter, relevantStudents]);
 
 	function handleApprove(studentId: number) {
-		const student = records.find((entry) => entry.id === studentId);
-		const studentName = student?.name ?? "a student";
-		const nowStr = new Date().toLocaleString();
-		const nowUnix = Date.now();
-		setRecords((prev) =>
-			prev.map((student) =>
-				student.id === studentId
-					? {
-							...student,
-							assignedToMentor: true,
-							hasConnected: true,
-							lastMessage: nowStr,
-							lastMessageUnix: nowUnix,
-					  }
-					: student
-			)
+		const student = relevantStudents.find((entry) => entry.id === studentId);
+		if (!student || !currentEmail) {
+			return;
+		}
+		const studentName = student.name ?? "a student";
+		const approvalMessage = `Hi ${
+			student.name.split(" ")[0] ?? "there"
+		}, I'm excited to connect with you!`;
+		setConversationStore((prevStore) =>
+			appendConversationMessage(prevStore, {
+				from: currentEmail,
+				to: student.email,
+				text: approvalMessage,
+			})
+		);
+		setConversationRequests((prev) =>
+			removeConversationRequest(prev, student.email, currentEmail)
 		);
 		addMentorNotification({
 			message: `Approved request from ${studentName}.`,
 			type: "connection",
 			contextId: studentId,
 		});
+		const mentorRouteId = buildAccountThreadId(currentEmail, "mentor");
 		pushNotificationToOtherRole("student", `${mentorDisplayName} accepted your request.`, {
 			type: "connection",
-			contextId: studentId,
-			link: `/student/home/messages/${studentId}`,
+			contextId: mentorRouteId ?? studentId,
+			link: `/student/home/messages/${mentorRouteId ?? studentId}`,
+			email: student.email,
 		});
 	}
 
@@ -215,7 +307,9 @@ const MentorRequestManagementPage = () => {
 																{student.name}
 															</CardTitle>
 															<p className="text-xs text-muted-foreground">
-																Grade {student.grade}
+																{typeof student.grade === "number"
+																	? `Grade ${student.grade}`
+																	: "Grade —"}
 															</p>
 														</div>
 														<Badge variant="secondary">
@@ -232,7 +326,7 @@ const MentorRequestManagementPage = () => {
 													</div>
 												</CardContent>
 												<CardFooter className="mt-auto flex flex-wrap gap-2">
-													{!student.assignedToMentor && (
+													{student.status === "pending" && (
 														<Button
 															size="sm"
 															className="gap-1"

@@ -83,7 +83,7 @@ export default function CampusMap() {
 		return result;
 	}, []);
 
-	const rooms = [...buildingCoords];
+	const rooms = loadMapRooms(buildingCoords);
 
 	const allTypes = useMemo(() => {
 		const set = new Set<string>();
@@ -210,7 +210,7 @@ export default function CampusMap() {
 								weight: onSchedule ? 4 : 2,
 							}}
 							eventHandlers={{
-								click: (e) => {
+								click: (event: L.LeafletMouseEvent) => {
 									const idx = schedule.findIndex((entry) => {
 										const e1 = normalize(entry);
 										const r1 = normalize(b.room);
@@ -235,9 +235,9 @@ export default function CampusMap() {
                     </div>
                   `;
 
-									(e.target as L.Polygon)
+									(event.target as L.Polygon)
 										.bindPopup(popupContent, { maxWidth: 260 })
-										.openPopup((e as any).latlng);
+										.openPopup(event.latlng);
 								},
 								mouseover: (e) =>
 									(e.target as L.Polygon).setStyle({ fillOpacity: 0.7 }),

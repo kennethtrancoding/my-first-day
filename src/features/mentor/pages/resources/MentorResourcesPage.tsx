@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import MentorDashboardLayout from "@/features/mentor/components/MentorDashboardLayout";
-import { createMainResources, createHelpAndSupport } from "@/constants";
+import { createMainResources, createHelpAndSupport } from "@/utils/constants";
 import { useStoredState } from "@/hooks/useStoredState";
 import { filterResourcesByAudience, type TeacherResource } from "@/utils/teacherData";
 
@@ -79,11 +79,14 @@ const MentorResourcesPage = () => {
 								<Card key={resource.id} className="flex flex-col">
 									<CardHeader className="space-y-2">
 										<div className="flex items-center justify-between gap-2">
-											<CardTitle className="text-lg">{resource.title}</CardTitle>
+											<CardTitle className="text-lg">
+												{resource.title}
+											</CardTitle>
 											<Badge variant="outline">Shared</Badge>
 										</div>
 										<CardDescription>
-											Updated {new Date(resource.updatedAt).toLocaleDateString()}
+											Updated{" "}
+											{new Date(resource.updatedAt).toLocaleDateString()}
 										</CardDescription>
 									</CardHeader>
 									<CardContent className="flex flex-col gap-4 flex-1">
@@ -94,7 +97,11 @@ const MentorResourcesPage = () => {
 											variant="secondary"
 											className="mt-auto"
 											onClick={() =>
-												window.open(resource.url, "_blank", "noopener,noreferrer")
+												window.open(
+													resource.url,
+													"_blank",
+													"noopener,noreferrer"
+												)
 											}>
 											Open resource <ArrowRight size={16} className="ml-2" />
 										</Button>

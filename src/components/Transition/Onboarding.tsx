@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import SignUp from "@/features/shared/pages/Landing/SignUp";
 import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
-import { interestOptions } from "@/constants";
+import { interestOptions } from "@/utils/constants";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Pin } from "lucide-react";
 import {
@@ -153,7 +153,10 @@ function Onboarding() {
 		}
 
 		setRole(resolvedRole);
+		setIsSubmitting(true);
+
 		setTimeout(() => {
+			setIsSubmitting(false);
 			if (normalizedRole === "mentor") {
 				navigate("/mentor/registration/");
 			} else {
@@ -651,7 +654,10 @@ function Onboarding() {
 							</div>
 						</CardContent>
 						<CardFooter className="w-full flex flex-col gap-2">
-							<Button type="submit" disabled={isSubmitting} className="w-full">
+							<Button
+								type="submit"
+								disabled={isSubmitting || !isScheduleComplete}
+								className="w-full">
 								{isSubmitting ? (
 									<>
 										<Loader2 className="mr-2 h-4 w-4 animate-spin" />

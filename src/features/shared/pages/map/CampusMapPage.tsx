@@ -8,7 +8,7 @@ import { loadMapRooms } from "@/utils/teacherData";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import OverlayPanel from "@/components/ui/studentMentorMapOverlayPanel";
-import { MAP_LABEL_TYPE_COLORS } from "@/constants";
+import { MAP_LABEL_TYPE_COLORS } from "@/utils/constants";
 import { mentors } from "@/people";
 import type { Person } from "@/people";
 import { findAccount, getCurrentEmail } from "@/utils/auth";

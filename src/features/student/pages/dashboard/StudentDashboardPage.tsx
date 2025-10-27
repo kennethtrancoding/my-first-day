@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
-import { upcomingEvents } from "@/constants";
+import { upcomingEvents } from "@/utils/constants";
 import { useNavigate } from "react-router-dom";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
 import { type MentorMatch, matchMentorsForStudent } from "@/utils/mentorMatching";

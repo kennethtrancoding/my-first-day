@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { FormEvent, KeyboardEvent, useRef, useState } from "react";
-import { Dot } from "lucide-react";
+import { Dot, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import GoogleSignInButton from "@/components/ui/googleSignIn";
 import { authenticate, type StoredAccount } from "@/utils/auth";
@@ -23,16 +23,19 @@ function LoginCard() {
 	const [feedback, setFeedback] = useState<{ type: "error" | "success"; text: string } | null>(
 		null
 	);
+	const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 	const navigate = useNavigate();
 
 	function handleSuccessfulLogin(account: StoredAccount) {
 		setFeedback(null);
-		setEmail("");
-		setPassword("");
+
 		const hasCompletedOnboarding = account.wentThroughOnboarding === true;
 		let destination = "/onboarding/";
 
 		if (hasCompletedOnboarding) {
+			setEmail("");
+			setPassword("");
+
 			if (account.role === "mentor") {
 				const mentorType = account.profile?.mentorType ?? "student";
 				destination = mentorType === "teacher" ? "/teacher/home/" : "/mentor/home/";
@@ -41,7 +44,11 @@ function LoginCard() {
 			}
 		}
 
-		navigate(destination, { replace: true });
+		setIsSubmitting(true);
+		setTimeout(() => {
+			setIsSubmitting(false);
+			navigate(destination, { replace: true });
+		}, 900);
 	}
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -51,7 +58,7 @@ function LoginCard() {
 		if (!trimmedEmail || !password) {
 			setFeedback({
 				type: "error",
-				text: "Enter both email and password to continue.",
+				text: "Enter both your email and password to continue.",
 			});
 			return;
 		}
@@ -149,7 +156,14 @@ function LoginCard() {
 					</CardContent>
 					<CardFooter className="flex flex-col justify-center">
 						<Button className="w-full" type="submit">
-							Log In
+							{isSubmitting ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Submitting
+								</>
+							) : (
+								"Log In"
+							)}
 						</Button>
 						<div className="flex items-center text-sm text-muted-foreground text-center mt-2">
 							<Link to="/sign-up/" className="hover:underline">

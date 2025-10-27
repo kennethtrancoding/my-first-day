@@ -13,6 +13,7 @@ import GoogleSignInButton from "@/components/ui/googleSignIn";
 import { Link, useNavigate } from "react-router-dom";
 import { FormEvent, KeyboardEvent, useRef, useState } from "react";
 import { registerAccount, findAccount } from "@/utils/auth";
+import { Loader2 } from "lucide-react";
 
 function SignupCard() {
 	const navigate = useNavigate();
@@ -20,13 +21,14 @@ function SignupCard() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const trimmedEmail = email.trim();
 
 		if (!trimmedEmail || !password) {
-			setError("Enter both email and password to continue.");
+			setError("Enter both your email and password to continue.");
 			return;
 		}
 
@@ -45,7 +47,12 @@ function SignupCard() {
 		setError(null);
 		setEmail("");
 		setPassword("");
-		navigate("/verification/");
+		setIsSubmitting(true);
+
+		setTimeout(() => {
+			setIsSubmitting(false);
+			navigate("/verification/");
+		}, 900);
 	}
 
 	function handleEmailKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -69,7 +76,8 @@ function SignupCard() {
 					<CardHeader>
 						<CardTitle>Sign Up</CardTitle>
 						<CardDescription>
-							Enter your email and create a password or use Google to create an account.
+							Enter your email and create a password or use Google to create an
+							account.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid gap-4">
@@ -110,7 +118,14 @@ function SignupCard() {
 					</CardContent>
 					<CardFooter className="flex flex-col">
 						<Button className="w-full" type="submit">
-							Sign Up
+							{isSubmitting ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Submitting
+								</>
+							) : (
+								"Sign Up"
+							)}
 						</Button>
 						<Link
 							className="text-sm text-muted-foreground hover:underline text-center mt-2"

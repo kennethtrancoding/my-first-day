@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@radix-ui/react-label";
 import { Switch } from "@radix-ui/react-switch";
 import TeacherDashboardLayout from "../../components/TeacherDashboardLayout";
-import { type Club } from "@/constants";
+import { type Club } from "@/utils/constants";
 import {
 	CLUB_PLACEHOLDER_IMAGE,
 	generateSlug,

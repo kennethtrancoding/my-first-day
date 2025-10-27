@@ -3,7 +3,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import TeacherDashboardLayout from "@/features/teacher/components/TeacherDashboardLayout";
 import { students, type Message, type Student } from "@/people";
 import { useNavigate, useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
@@ -277,9 +276,7 @@ function TeacherMessagingLayout() {
 	const newStudents = filtered.filter(
 		(student) => student.requestedCommunication && !student.hasConnected
 	);
-	const activeStudents = filtered.filter(
-		(student) => !student.requestedCommunication || student.hasConnected
-	);
+	const activeStudents = filtered.filter((student) => student.hasConnected);
 
 	function ListGroup({
 		title,

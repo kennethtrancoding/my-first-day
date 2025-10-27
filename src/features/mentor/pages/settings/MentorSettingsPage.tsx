@@ -26,7 +26,7 @@ import {
 	findAccount,
 	updateAccountEmail,
 } from "@/utils/auth";
-import { interestOptions } from "@/constants";
+import { interestOptions } from "@/utils/constants";
 import { useNavigate } from "react-router-dom";
 
 const DIGEST_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

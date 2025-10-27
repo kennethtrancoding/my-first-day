@@ -47,9 +47,16 @@ function formatWhen(ts: number | string) {
 }
 
 function cloneMentorThreads(matchedIds?: Set<number>): Person[] {
+	const { account } = useCurrentAccount();
+	const profileMatches = account?.profile?.matchedMentorIds;
+	const matchedMentorIds = React.useMemo(() => {
+		const matches = profileMatches ?? [];
+		return new Set(matches.slice(0, 4).map((match) => match.mentor.id));
+	}, [profileMatches]);
+
 	return mentors.map((mentor) => ({
 		...mentor,
-		matchedWithUser: matchedIds ? matchedIds.has(mentor.id) : mentor.matchedWithUser,
+		matchedWithUser: matchedIds ? matchedIds.has(mentor.id) : matchedMentorIds.has(mentor.id),
 		conversation: mentor.conversation.map((message) => ({ ...message })),
 	}));
 }
@@ -207,7 +214,7 @@ function StudentMessagingLayout() {
 		setLocalThreads((prev) =>
 			prev.map((thread) => {
 				const nextMatched = matchedMentorIds.has(thread.id);
-				if (thread.matchedWithUser === nextMatched) {
+				if (nextMatched) {
 					return thread;
 				}
 				return { ...thread, matchedWithUser: nextMatched };
@@ -398,9 +405,9 @@ function StudentMessagingLayout() {
 	}, [threads, search]);
 
 	const requested = filtered.filter((p) => p.requestedCommunication && !p.hasConnected);
-	const matched = filtered.filter((p) => p.matchedWithUser);
+	const matched = filtered.filter((p) => matchedMentorIds.has(p.id));
 	const connected = filtered.filter(
-		(p) => p.hasConnected && !p.requestedCommunication && !p.matchedWithUser
+		(p) => p.hasConnected && !p.requestedCommunication && !matchedMentorIds.has(p.id)
 	);
 	const outstandingRequestCount = React.useMemo(
 		() => threads.filter((p) => p.requestedCommunication && !p.hasConnected).length,
@@ -441,7 +448,9 @@ function StudentMessagingLayout() {
 				</div>
 				<ul className="divide-y">
 					{visible.map((p) => (
-						<li key={p.id} className="rounded-md focus-within:ring-1 focus-within:ring-ring">
+						<li
+							key={p.id}
+							className="rounded-md focus-within:ring-1 focus-within:ring-ring">
 							<div
 								role="button"
 								tabIndex={0}
@@ -470,7 +479,9 @@ function StudentMessagingLayout() {
 										)}
 									</div>
 									{p.requestedCommunication && !p.hasConnected && (
-										<Badge className="mt-1 w-fit text-[10px]" variant="secondary">
+										<Badge
+											className="mt-1 w-fit text-[10px]"
+											variant="secondary">
 											Requested
 										</Badge>
 									)}

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
-import { interestOptions } from "@/constants";
+import { interestOptions } from "@/utils/constants";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";

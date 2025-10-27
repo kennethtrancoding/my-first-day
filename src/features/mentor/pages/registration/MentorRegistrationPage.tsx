@@ -24,28 +24,10 @@ const MentorRegistrationPage = () => {
 		() => `user:${currentEmail}:mentorRegistration`,
 		[currentEmail]
 	);
-	const onboardingPrefix = React.useMemo(
-		() =>
-			`user:${
-				currentEmail === "guest-mentor" || !currentEmail ? "guest" : currentEmail
-			}:onboarding`,
-		[currentEmail]
-	);
 
 	const [role, setRole] = useStoredState<MentorRole>(`${storagePrefix}:role`, "teacher");
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const navigate = useNavigate();
-
-	const [onboardingFirstName] = useStoredState<string>(`${onboardingPrefix}:firstName`, "");
-	const [onboardingLastName] = useStoredState<string>(`${onboardingPrefix}:lastName`, "");
-	const onboardingFullName = React.useMemo(
-		() =>
-			[onboardingFirstName, onboardingLastName]
-				.map((part) => part.trim())
-				.filter(Boolean)
-				.join(" "),
-		[onboardingFirstName, onboardingLastName]
-	);
 
 	const [teacherName, setTeacherName] = useStoredState<string>(
 		`${storagePrefix}:teacher:name`,
@@ -79,6 +61,32 @@ const MentorRegistrationPage = () => {
 	);
 	const [studentWhy, setStudentWhy] = useStoredState<string>(`${storagePrefix}:student:why`, "");
 
+	function isNonEmpty(v: unknown) {
+		if (v == null) {
+			return false;
+		}
+		if (typeof v === "string") {
+			return v.trim() !== "";
+		}
+		return true;
+	}
+
+	function isFormValid() {
+		if (role === "teacher") {
+			return (
+				isNonEmpty(teacherName) &&
+				isNonEmpty(teacherRoom) &&
+				isNonEmpty(teacherDepartment) &&
+				isNonEmpty(teacherFocus)
+			);
+		}
+		return (
+			isNonEmpty(studentName) &&
+			isNonEmpty(studentGrade) &&
+			isNonEmpty(studentExperience) &&
+			isNonEmpty(studentWhy)
+		);
+	}
 	function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setIsSubmitting(true);
@@ -143,8 +151,8 @@ const MentorRegistrationPage = () => {
 				<CardContent>
 					<Tabs value={role} onValueChange={(value) => setRole(value as MentorRole)}>
 						<TabsList className="grid grid-cols-2 w-full">
-							<TabsTrigger value="teacher">Teacher Mentor</TabsTrigger>
 							<TabsTrigger value="student">Student Mentor</TabsTrigger>
+							<TabsTrigger value="teacher">Teacher Mentor</TabsTrigger>
 						</TabsList>
 
 						<form className="mt-6 space-y-6" onSubmit={handleSubmit}>
@@ -241,7 +249,10 @@ const MentorRegistrationPage = () => {
 							</TabsContent>
 
 							<CardFooter className="flex flex-col gap-3">
-								<Button type="submit" disabled={isSubmitting} className="w-full">
+								<Button
+									type="submit"
+									disabled={isSubmitting || !isFormValid()}
+									className="w-full">
 									{isSubmitting ? (
 										<>
 											<Loader2 className="mr-2 h-4 w-4 animate-spin" />

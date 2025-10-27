@@ -1,9 +1,6 @@
 import { useStoredState } from "@/hooks/useStoredState";
-import {
-	electiveCategories as electiveSeeds,
-	type ElectiveCategory,
-} from "@/data/electives";
-import { clubDirectory as clubSeeds, type Club } from "@/constants";
+import { electiveCategories as electiveSeeds, type ElectiveCategory } from "@/data/electives";
+import { clubDirectory as clubSeeds, type Club } from "@/utils/constants";
 
 export const TEACHER_ELECTIVES_KEY = "teacher:electives";
 export const TEACHER_CLUBS_KEY = "teacher:clubs";

@@ -16,15 +16,22 @@ export interface AccountProfile {
 	mentorBio?: string;
 	mentorOfficeHours?: string;
 	mentorType?: "teacher" | "student";
+	teacherTitle?: string;
+	teacherRoom?: string;
+	teacherAvailabilityNotes?: string;
 }
 
 export interface AccountSettings {
 	emailNotificationsEnabled?: boolean;
+	pushNotificationsEnabled?: boolean;
 	requestAlerts?: boolean;
 	digestWeekday?: string;
 	digestTime?: string;
 	digestEnabled?: boolean;
 	availability?: boolean;
+	resourceRemindersEnabled?: boolean;
+	mapAlertsEnabled?: boolean;
+	smsUrgentAlertsEnabled?: boolean;
 }
 
 export interface StoredAccount {
@@ -186,6 +193,51 @@ export function updateAccount(email: string, updates: Partial<StoredAccount>) {
 	accounts[idx] = nextAccount;
 	saveAccounts(accounts);
 	return nextAccount;
+}
+
+export function updateAccountEmail(oldEmail: string, newEmail: string) {
+	const normalizedOld = oldEmail.trim().toLowerCase();
+	const normalizedNew = newEmail.trim().toLowerCase();
+
+	if (!normalizedNew) {
+		return { success: false, error: "Please provide a valid email." };
+	}
+
+	const accounts = getAccounts();
+	const idx = accounts.findIndex(
+		(account) => account.email.toLowerCase() === normalizedOld
+	);
+
+	if (idx === -1) {
+		return { success: false, error: "We couldn't find that account." };
+	}
+
+	const conflictIndex = accounts.findIndex(
+		(account, accountIdx) =>
+			accountIdx !== idx && account.email.toLowerCase() === normalizedNew
+	);
+
+	if (conflictIndex !== -1) {
+		return { success: false, error: "That email is already in use." };
+	}
+
+	accounts[idx] = {
+		...accounts[idx],
+		email: normalizedNew,
+	};
+	saveAccounts(accounts);
+
+	const activeEmail = getCurrentEmail();
+	if (activeEmail && activeEmail.toLowerCase() === normalizedOld) {
+		setCurrentEmail(normalizedNew);
+	}
+
+	const pending = getPendingEmail();
+	if (pending && pending.toLowerCase() === normalizedOld) {
+		setPendingEmail(normalizedNew);
+	}
+
+	return { success: true, email: normalizedNew };
 }
 
 export function resetPassword(email: string, newPassword: string) {

@@ -37,6 +37,7 @@ import TeacherMapCoordinatesEditor from "./features/teacher/pages/map/TeacherMap
 import TeacherMessagingLayout from "@/features/teacher/pages/messaging/TeacherMessagingLayout";
 import TeacherNewClubCreator from "./features/teacher/pages/resources/TeacherNewClubCreator";
 import TeacherNewElectiveCreator from "./features/teacher/pages/resources/TeacherNewElectiveCategoryCreator";
+import TeacherSettingsPage from "@/features/teacher/pages/settings/TeacherSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -142,6 +143,10 @@ function App() {
 							<Route
 								path="/teacher/home/messages/:id?/"
 								element={<TeacherMessagingLayout />}
+							/>
+							<Route
+								path="/teacher/home/settings/"
+								element={<TeacherSettingsPage />}
 							/>
 
 							<Route path="*" element={<NotFoundPage />} />

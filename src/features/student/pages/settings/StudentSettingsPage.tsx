@@ -17,6 +17,7 @@ import {
 	Shirt,
 	ArrowRight,
 	Users,
+	Mail,
 } from "lucide-react";
 import * as React from "react";
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
@@ -24,12 +25,26 @@ import { interestOptions } from "@/constants";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail, updateAccount, logout, findAccount } from "@/utils/auth";
+import {
+	getCurrentEmail,
+	updateAccount,
+	logout,
+	findAccount,
+	updateAccountEmail,
+} from "@/utils/auth";
 import { matchMentorsForStudent } from "@/utils/mentorMatching";
 import { writeToStorage } from "@/utils/storage";
+import { pushNotificationForRole } from "@/hooks/useNotifications";
 
 type SaveState = "idle" | "saving" | "saved";
-type FieldKey = "name" | "interests" | "clothingSize" | "bio" | "schedule" | "notifications";
+type FieldKey =
+	| "name"
+	| "interests"
+	| "clothingSize"
+	| "bio"
+	| "schedule"
+	| "notifications"
+	| "email";
 
 interface FieldStatusMap {
 	[field: string]: SaveState;
@@ -66,14 +81,17 @@ function SaveButton({
 }
 
 function StudentSettingsPage() {
-	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
-	const storageIdentity = currentEmail ?? "anonymous-student";
+	const [currentEmail, setCurrentEmail] = React.useState(() => getCurrentEmail());
+	const storageIdentity = currentEmail || "anonymous-student";
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:studentSettings`,
 		[storageIdentity]
 	);
 
-	const account = currentEmail ? findAccount(currentEmail) : null;
+	const account = React.useMemo(
+		() => (currentEmail ? findAccount(currentEmail) : null),
+		[currentEmail]
+	);
 
 	const fallbackName = React.useMemo(() => {
 		if (!currentEmail) {
@@ -123,6 +141,12 @@ function StudentSettingsPage() {
 		() => fallbackName
 	);
 	const email = currentEmail ?? "";
+	const [emailInput, setEmailInput] = React.useState(email);
+	const [emailError, setEmailError] = React.useState<string | null>(null);
+
+	React.useEffect(() => {
+		setEmailInput(currentEmail ?? "");
+	}, [currentEmail]);
 
 	const [selectedInterests, setSelectedInterests] = useStoredState<string>(
 		`${storagePrefix}:interests`,
@@ -158,6 +182,15 @@ function StudentSettingsPage() {
 			return true;
 		}
 	);
+	const [pushNotificationsEnabled, setPushNotificationsEnabled] = useStoredState<boolean>(
+		`${storagePrefix}:pushNotificationsEnabled`,
+		() => {
+			if (account?.settings?.pushNotificationsEnabled != null) {
+				return account.settings.pushNotificationsEnabled;
+			}
+			return true;
+		}
+	);
 
 	const roomEntries = buildingCoords;
 	const gradeNumber = React.useMemo(() => {
@@ -173,6 +206,7 @@ function StudentSettingsPage() {
 		bio: "idle",
 		schedule: "idle",
 		notifications: "idle",
+		email: "idle",
 	});
 
 	function setSaveStatus(field: FieldKey, status: SaveState) {
@@ -282,12 +316,48 @@ function StudentSettingsPage() {
 					updateAccount(currentEmail, {
 						settings: {
 							emailNotificationsEnabled,
+							pushNotificationsEnabled: pushNotificationsEnabled,
 						},
 					});
 					break;
 			}
 		}
 		simulateSave(field);
+	}
+
+	function handleEmailUpdate() {
+		const trimmed = emailInput.trim().toLowerCase();
+		const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+		if (!currentEmail) {
+			setEmailError("You must be signed in to change your email.");
+			return;
+		}
+
+		if (!trimmed || !emailPattern.test(trimmed)) {
+			setEmailError("Enter a valid email address.");
+			return;
+		}
+
+		if (trimmed === currentEmail.toLowerCase()) {
+			setEmailError("You're already using this email.");
+			return;
+		}
+
+		setEmailError(null);
+		setSaveStatus("email", "saving");
+		const result = updateAccountEmail(currentEmail, trimmed);
+
+		if (!result.success || !result.email) {
+			setEmailError(result.error ?? "That email is already in use.");
+			setSaveStatus("email", "idle");
+			return;
+		}
+
+		setCurrentEmail(result.email);
+		setEmailInput(result.email);
+		setSaveStatus("email", "saved");
+		setTimeout(() => setSaveStatus("email", "idle"), 1500);
 	}
 
 	const handleLogout = () => {
@@ -334,69 +404,55 @@ function StudentSettingsPage() {
 					</div>
 
 					<TabsContent value="profile" className="space-y-6">
-						<Card>
-							<CardHeader className="flex flex-row items-center justify-between">
-								<div>
-									<CardTitle className="flex items-center gap-2">
-										<User className="h-5 w-5 text-primary" />
-										Profile Information
-									</CardTitle>
-									<CardDescription>
-										Manage your name and email address.
-									</CardDescription>
-								</div>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="grid gap-2">
-									<Label htmlFor="name">Name</Label>
-									<Input
-										id="name"
-										value={username}
-										onChange={(e) => setUsername(e.target.value)}
-										placeholder={fallbackName}
-									/>
-								</div>
-								<div className="grid gap-2">
-									<Label htmlFor="email">Email</Label>
-									<Input id="email" type="email" value={email} />
-								</div>
-								<div className="flex gap-2">
-									<SaveButton
-										state={fieldStatus.name}
-										onClick={() => handleSavePreferences("name")}
-										idleText="Save Profile"
-									/>
-								</div>
-							</CardContent>
-						</Card>
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<BookOpen className="h-5 w-5 text-primary" />
-									Bio
-								</CardTitle>
-								<CardDescription>
-									This will show up alongside your name when people search for
-									you.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="grid w-full  items-center gap-1.5">
-									<Label htmlFor="clothing-size">Bio</Label>
-									<textarea
-										id="bio"
-										value={bio}
-										onChange={(e) => setBio(e.target.value)}
-										className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-									/>
-								</div>
-								<SaveButton
-									state={fieldStatus.bio}
-									onClick={() => handleSavePreferences("bio")}
-									idleText="Save Bio"
-								/>
-							</CardContent>
-						</Card>
+						<TabsContent value="profile" className="space-y-6">
+							<Card>
+								<CardHeader className="flex flex-row items-center justify-between">
+									<div>
+										<CardTitle className="flex items-center gap-2">
+											<User className="h-4 w-4 text-primary" />
+											Profile Information
+										</CardTitle>
+										<CardDescription>
+											Manage basic account information.
+										</CardDescription>
+									</div>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<div className="space-y-2">
+										<Label htmlFor="display-name">Display name</Label>
+										<Input
+											id="display-name"
+											value={username}
+											onChange={(event) => setUsername(event.target.value)}
+											placeholder="Alex Johnson"
+										/>
+									</div>
+
+									<div className="space-y-2">
+										<Label htmlFor="teacher-bio">Bio</Label>
+										<textarea
+											id="bio"
+											value={bio}
+											onChange={(e) => setBio(e.target.value)}
+											className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+											placeholder="Share your pathway focus, favorite projects, or how students can partner with you."
+										/>
+										<p className="text-xs text-muted-foreground">
+											This appears on resource pages and helps students know
+											your focus areas.
+										</p>
+									</div>
+									<div className="flex gap-2">
+										<SaveButton
+											state={fieldStatus.name}
+											onClick={() => handleSavePreferences("name")}
+											idleText="Save Profile"
+										/>
+									</div>
+								</CardContent>
+							</Card>
+						</TabsContent>
+
 						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
@@ -717,6 +773,42 @@ function StudentSettingsPage() {
 						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
+									<Mail className="h-5 w-5 text-primary" />
+									Update Email
+								</CardTitle>
+								<CardDescription>
+									Use the email you check most so you never miss a mentor message.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="space-y-2">
+									<Label>Current email</Label>
+									<Input value={currentEmail ?? ""} readOnly disabled />
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="student-new-email">New email</Label>
+									<Input
+										id="student-new-email"
+										type="email"
+										value={emailInput}
+										onChange={(event) => setEmailInput(event.target.value)}
+										placeholder="you@example.com"
+									/>
+								</div>
+								{emailError && (
+									<p className="text-sm text-destructive">{emailError}</p>
+								)}
+								<SaveButton
+									state={fieldStatus.email}
+									onClick={handleEmailUpdate}
+									idleText="Update Email"
+								/>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardHeader>
+								<CardTitle className="flex items-center gap-2">
 									<Lock className="h-5 w-5 text-destructive" />
 									Security
 								</CardTitle>
@@ -778,7 +870,7 @@ function StudentSettingsPage() {
 									</div>
 								</div>
 
-								<div className="flex items-start justify-between gap-4 rounded-xl border p-4 opacity-60">
+								<div className="flex items-start justify-between gap-4 rounded-xl border p-4">
 									<div className="space-y-1">
 										<div className="flex items-center gap-2">
 											<Label
@@ -786,14 +878,17 @@ function StudentSettingsPage() {
 												className="text-base font-medium">
 												Push Notifications
 											</Label>
-											<Badge variant="secondary">Coming soon</Badge>
 										</div>
 										<p className="text-sm text-muted-foreground">
 											Native push alerts for mentions and direct messages.
 										</p>
 									</div>
 									<div className="flex items-center gap-3">
-										<Switch id="push-notifs" disabled />
+										<Switch
+											id="push-notifs"
+											checked={pushNotificationsEnabled}
+											onCheckedChange={setPushNotificationsEnabled}
+										/>
 									</div>
 								</div>
 

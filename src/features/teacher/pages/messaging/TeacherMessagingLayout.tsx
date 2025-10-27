@@ -32,6 +32,8 @@ import {
 	getConversationRequest,
 	removeConversationRequest,
 } from "@/utils/messaging";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import TeacherDashboardSidebar from "../../components/TeacherDashboardSidebar";
 
 function formatWhen(ts: number | string) {
 	const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
@@ -336,93 +338,97 @@ function TeacherMessagingLayout() {
 	}
 
 	return (
-		<TeacherDashboardLayout activePage="messages">
-			<div className="flex flex-col md:flex-row gap-6 max-h-[calc(100vh-8rem)]">
-				<section className="flex-1 min-w-0 flex flex-col">
-					<Card className="flex-1 flex flex-col">
-						<CardHeader>
-							<h3 className="text-lg font-semibold">
-								{selected?.name ?? "Select a student to start chatting"}
-							</h3>
-						</CardHeader>
-						<CardContent className="flex-1 flex flex-col p-0">
-							<ScrollArea className="flex-1 p-4">
-								<div className="space-y-3 flex flex-col">
-									{selected?.conversation?.map((message) => (
-										<div
-											key={message.id}
-											className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
-												message.from === "in"
-													? "bg-muted text-foreground self-start"
-													: "bg-primary text-primary-foreground self-end ml-auto"
-											}`}>
-											{message.text}
-										</div>
-									))}
-									<div ref={endRef} />
-								</div>
-							</ScrollArea>
-							<div className="p-4 border-t bg-card mt-auto sticky bottom-0">
-								<div className="flex gap-2">
-									<textarea
-										rows={1}
-										className="flex-1 rounded-md border border-input p-2 resize-none"
-										placeholder={
-											selected?.name
-												? `Message ${selected.name}`
-												: "Select a student to start a conversation"
-										}
-										value={composer}
-										onChange={(event) => setComposer(event.target.value)}
-										onKeyDown={handleKeyDown}
-									/>
-									<Button onClick={sendMessage} disabled={!composer.trim()}>
-										Send
-									</Button>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
-				</section>
-
-				<aside className="w-full md:w-[360px] max-h-[calc(100vh-8rem)]">
-					<Card className="flex-1 flex flex-col">
-						<CardHeader>
-							<h3 className="text-lg font-semibold">Students</h3>
-						</CardHeader>
-						<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-							<div className="p-4 space-y-4">
-								<Input
-									placeholder="Search students & messages"
-									value={search}
-									onChange={(event) => setSearch(event.target.value)}
-								/>
-
-								<ScrollArea className="h-[calc(100vh-20rem)] pr-2">
-									<div className="space-y-6">
-										<ListGroup
-											title="Message requests"
-											items={newStudents}
-											showAll={showAllNew}
-											onToggle={() => setShowAllNew((prev) => !prev)}
-											emptyLabel="No new message requests."
-										/>
-
-										<ListGroup
-											title="Conversations"
-											items={activeStudents}
-											showAll={showAllActive}
-											onToggle={() => setShowAllActive((prev) => !prev)}
-											emptyLabel="Start a conversation to see it here."
-										/>
+		<SidebarProvider>
+			<TeacherDashboardSidebar activePage="messages" />
+			<main className="flex-1 p-8 h-full">
+				<div className="flex flex-col md:flex-row gap-6 max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-4rem)]">
+					<section className="flex-1 min-w-0 flex flex-col">
+						<Card className="flex-1 flex flex-col">
+							<CardHeader>
+								<h3 className="flex text-lg font-semibold gap-3 items-center">
+									<SidebarTrigger />
+									{selected?.name ?? "Messages"}
+								</h3>
+							</CardHeader>
+							<CardContent className="flex-1 flex flex-col p-0">
+								<ScrollArea className="flex-1 p-4">
+									<div className="space-y-3 flex flex-col">
+										{selected?.conversation?.map((message) => (
+											<div
+												key={message.id}
+												className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
+													message.from === "in"
+														? "bg-muted text-foreground self-start"
+														: "bg-primary text-primary-foreground self-end ml-auto"
+												}`}>
+												{message.text}
+											</div>
+										))}
+										<div ref={endRef} />
 									</div>
 								</ScrollArea>
-							</div>
-						</CardContent>
-					</Card>
-				</aside>
-			</div>
-		</TeacherDashboardLayout>
+								<div className="p-4 border-t bg-card mt-auto sticky bottom-0">
+									<div className="flex gap-2">
+										<textarea
+											rows={1}
+											className="flex-1 rounded-md border border-input p-2 resize-none"
+											placeholder={
+												selected?.name
+													? `Message ${selected.name}`
+													: "Select a student to start a conversation"
+											}
+											value={composer}
+											onChange={(event) => setComposer(event.target.value)}
+											onKeyDown={handleKeyDown}
+										/>
+										<Button onClick={sendMessage} disabled={!composer.trim()}>
+											Send
+										</Button>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</section>
+
+					<aside className="w-full md:w-[360px] max-h-[calc(100vh-8rem)]">
+						<Card className="flex-1 flex flex-col">
+							<CardHeader>
+								<h3 className="text-lg font-semibold">Students</h3>
+							</CardHeader>
+							<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+								<div className="p-4 space-y-4">
+									<Input
+										placeholder="Search students & messages"
+										value={search}
+										onChange={(event) => setSearch(event.target.value)}
+									/>
+
+									<ScrollArea className="h-[calc(100vh-20rem)] pr-2">
+										<div className="space-y-6">
+											<ListGroup
+												title="Message requests"
+												items={newStudents}
+												showAll={showAllNew}
+												onToggle={() => setShowAllNew((prev) => !prev)}
+												emptyLabel="No new message requests."
+											/>
+
+											<ListGroup
+												title="Conversations"
+												items={activeStudents}
+												showAll={showAllActive}
+												onToggle={() => setShowAllActive((prev) => !prev)}
+												emptyLabel="Start a conversation to see it here."
+											/>
+										</div>
+									</ScrollArea>
+								</div>
+							</CardContent>
+						</Card>
+					</aside>
+				</div>{" "}
+			</main>
+		</SidebarProvider>
 	);
 }
 

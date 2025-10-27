@@ -22,6 +22,7 @@ const sidebarMenuItems = [
 	{ label: "Resources", slug: "resources", href: "/teacher/home/resources/" },
 	{ label: "Map Editor", slug: "map", href: "/teacher/home/map/" },
 	{ label: "Messages", slug: "messages", href: "/teacher/home/messages/" },
+	{ label: "Settings", slug: "settings", href: "/teacher/home/settings/" },
 ];
 
 function TeacherDashboardSidebar({ activePage }: TeacherDashboardSidebarProps) {

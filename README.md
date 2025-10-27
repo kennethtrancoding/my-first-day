@@ -6,10 +6,11 @@ My First Day is a web application designed to connect new or transferring studen
 
 # Overview
 
-The application provides two user interfaces:
+The application provides three user interfaces:
 
-Student Page: Allows new students to register, see available/matched mentors, and send connection messages.
-Mentor Page: Allows student mentors and teachers to manage their profiles, view assigned students, and respond to incoming questions and requests.
+Student Page: Allows new students to register, see available/matched mentors, and send messages.
+Mentor Page: Allows student mentors to manage their profiles, view assigned students, and respond to incoming questions and requests.
+Teacher Page: Allows teachers to manage their profiles, edit resources, and respond to incoming questions and requests.
 
 # Features
 

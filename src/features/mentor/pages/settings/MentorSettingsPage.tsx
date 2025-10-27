@@ -19,7 +19,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MentorDashboardLayout from "@/features/mentor/components/MentorDashboardLayout";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail, updateAccount, logout, findAccount } from "@/utils/auth";
+import {
+	getCurrentEmail,
+	updateAccount,
+	logout,
+	findAccount,
+	updateAccountEmail,
+} from "@/utils/auth";
 import { interestOptions } from "@/constants";
 import { useNavigate } from "react-router-dom";
 
@@ -63,16 +69,18 @@ function SaveButton({
 }
 
 const MentorSettingsPage = () => {
-	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
-	const storageIdentity = currentEmail ?? "anonymous-mentor";
+	const [currentEmail, setCurrentEmail] = React.useState(() => getCurrentEmail());
+	const storageIdentity = currentEmail || "anonymous-mentor";
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:mentorSettings`,
 		[storageIdentity]
 	);
 	const navigate = useNavigate();
 
-	const account =
-		currentEmail ? findAccount(currentEmail) : null;
+	const account = React.useMemo(
+		() => (currentEmail ? findAccount(currentEmail) : null),
+		[currentEmail]
+	);
 
 	const fallbackName = React.useMemo(() => {
 		if (!currentEmail) {
@@ -168,6 +176,13 @@ const MentorSettingsPage = () => {
 	const [officeStatus, setOfficeStatus] = React.useState<SaveState>("idle");
 
 	const preferredEmail = currentEmail || "mentor@example.org";
+	const [emailInput, setEmailInput] = React.useState(preferredEmail);
+	const [emailStatus, setEmailStatus] = React.useState<SaveState>("idle");
+	const [emailError, setEmailError] = React.useState<string | null>(null);
+
+	React.useEffect(() => {
+		setEmailInput(currentEmail || "mentor@example.org");
+	}, [currentEmail]);
 
 	const [emailNotifications, setEmailNotifications] = useStoredState<boolean>(
 		`${storagePrefix}:emailNotifications`,
@@ -277,6 +292,41 @@ const MentorSettingsPage = () => {
 			});
 		}
 		simulateSave(setDigestStatus);
+	}
+
+	function handleEmailUpdate() {
+		if (!currentEmail) {
+			setEmailError("You must be signed in to change your email.");
+			return;
+		}
+
+		const trimmed = emailInput.trim().toLowerCase();
+		const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+		if (!trimmed || !emailPattern.test(trimmed)) {
+			setEmailError("Enter a valid email address.");
+			return;
+		}
+
+		if (trimmed === currentEmail.toLowerCase()) {
+			setEmailError("You're already using this email.");
+			return;
+		}
+
+		setEmailError(null);
+		setEmailStatus("saving");
+		const result = updateAccountEmail(currentEmail, trimmed);
+
+		if (!result.success || !result.email) {
+			setEmailError(result.error ?? "That email is already in use.");
+			setEmailStatus("idle");
+			return;
+		}
+
+		setCurrentEmail(result.email);
+		setEmailInput(result.email);
+		setEmailStatus("saved");
+		setTimeout(() => setEmailStatus("idle"), 1500);
 	}
 
 	function handlePasswordReset() {
@@ -395,31 +445,6 @@ const MentorSettingsPage = () => {
 								</SaveButton>
 							</CardContent>
 						</Card>
-
-						<Card>
-							<CardHeader>
-								<CardTitle>Contact Information</CardTitle>
-								<CardDescription>
-									This is shared with approved students for follow-up questions.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="grid gap-2">
-									<Label>Email</Label>
-									<div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
-										<Mail className="h-4 w-4 text-muted-foreground" />
-										<span>{preferredEmail}</span>
-									</div>
-									<p className="text-xs text-muted-foreground">
-										Update your email through the district portal if needed.
-									</p>
-								</div>
-								<div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-									Keep your profile accurate so students always know how to reach
-									you and what to expect from mentoring sessions.
-								</div>
-							</CardContent>
-						</Card>
 					</TabsContent>
 
 					<TabsContent value="preferences" className="space-y-6">
@@ -511,7 +536,7 @@ const MentorSettingsPage = () => {
 
 						<Card>
 							<CardHeader>
-								<CardTitle>Office Hours</CardTitle>
+								<CardTitle>Available Hours</CardTitle>
 								<CardDescription>
 									Let students know when you can meet virtually or on campus.
 								</CardDescription>
@@ -533,6 +558,40 @@ const MentorSettingsPage = () => {
 					</TabsContent>
 
 					<TabsContent value="security" className="space-y-6">
+						<Card>
+							<CardHeader>
+								<CardTitle className="flex items-center gap-2">
+									<Mail className="h-4 w-4 text-primary" />
+									Update Email
+								</CardTitle>
+								<CardDescription>
+									Keep your contact info up to date so students can reach you.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="space-y-2">
+									<Label>Current email</Label>
+									<Input value={currentEmail ?? ""} readOnly disabled />
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="mentor-new-email">New email</Label>
+									<Input
+										id="mentor-new-email"
+										type="email"
+										value={emailInput}
+										onChange={(event) => setEmailInput(event.target.value)}
+										placeholder="you@example.org"
+									/>
+								</div>
+								{emailError && (
+									<p className="text-sm text-destructive">{emailError}</p>
+								)}
+								<SaveButton state={emailStatus} onClick={handleEmailUpdate}>
+									Update Email
+								</SaveButton>
+							</CardContent>
+						</Card>
+
 						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
@@ -612,7 +671,7 @@ const MentorSettingsPage = () => {
 						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
-									<Megaphone className="h-4 w-4" /> Weekly Digest
+									Weekly Digest
 								</CardTitle>
 								<CardDescription>
 									Get a recap of messages and student activity.

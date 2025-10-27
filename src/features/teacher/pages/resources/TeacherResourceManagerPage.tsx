@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTeacherElectives, useTeacherClubs } from "@/hooks/useTeacherCollections";
 import type { ElectiveCategory, ElectiveCourse } from "@/data/electives";
-import type { Club } from "@/utils/constants";
+import type { Club } from "@/utils/data";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp } from "lucide-react";
 

@@ -1,5 +1,5 @@
-import { mentors, type Person } from "@/people";
-import { interestOptions } from "@/constants";
+import { mentors, type Person } from "@/utils/people";
+import { interestOptions } from "@/utils/data";
 
 export type MentorMatch = {
 	mentor: Person;

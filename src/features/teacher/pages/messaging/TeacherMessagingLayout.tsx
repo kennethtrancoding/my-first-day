@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { students, type Message, type Student } from "@/people";
+import { students, type Message, type Student } from "@/utils/people";
 import { useNavigate, useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import placeholderProfile from "@/assets/placeholder-profile.svg";

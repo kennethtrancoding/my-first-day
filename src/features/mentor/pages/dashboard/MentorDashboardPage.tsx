@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { upcomingEvents } from "@/utils/constants";
+import { upcomingEvents } from "@/utils/data";
 import { useTeacherClubs } from "@/hooks/useTeacherCollections";
 import { useStoredState } from "@/hooks/useStoredState";
 import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";

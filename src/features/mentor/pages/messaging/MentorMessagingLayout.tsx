@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import MentorDashboardSidebar from "@/features/mentor/components/MentorDashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { students, Message, Student } from "@/people";
+import { students, Message, Student } from "@/utils/people";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import placeholderProfile from "@/assets/placeholder-profile.svg";

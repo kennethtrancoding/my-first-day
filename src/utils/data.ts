@@ -1,7 +1,7 @@
 import { Map as MapIcon, FileText, Sparkles, Users, CalendarDays, Settings } from "lucide-react";
 import type { NavigateFunction } from "react-router-dom";
-import { mentors } from "@/people";
-import type { Person } from "@/people";
+import { mentors } from "@/utils/people";
+import type { Person } from "@/utils/people";
 import { buildingCoords, type RoomData } from "@/features/shared/pages/map/buildingCoords";
 
 export const upcomingEvents = [

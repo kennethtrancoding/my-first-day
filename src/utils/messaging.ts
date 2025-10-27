@@ -1,4 +1,4 @@
-import { Message } from "@/people";
+import { Message } from "@/utils/people";
 
 export const CONVERSATION_STORE_KEY = "messages:threads";
 export const CONVERSATION_REQUESTS_KEY = "messages:requests";

@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
-import { createMainResources, createHelpAndSupport } from "@/utils/constants";
+import { createMainResources, createHelpAndSupport } from "@/utils/data";
 import { useStoredState } from "@/hooks/useStoredState";
 import { filterResourcesByAudience, type TeacherResource } from "@/utils/teacherData";
 

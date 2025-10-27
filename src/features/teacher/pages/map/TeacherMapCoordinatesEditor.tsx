@@ -5,8 +5,8 @@ import L, { LatLngTuple, LeafletMouseEvent, MarkerOptions } from "leaflet";
 
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import { MAP_LABEL_TYPE_COLORS } from "@/constants";
-import { mentors, type Person } from "@/people";
+import { MAP_LABEL_TYPE_COLORS } from "@/utils/data";
+import { mentors, type Person } from "@/utils/people";
 import { useStoredState } from "@/hooks/useStoredState";
 import { buildingCoords, type RoomData } from "@/features/shared/pages/map/buildingCoords";
 import TeacherOverlayPanel from "@/components/ui/teacherMapOverlayPanel";

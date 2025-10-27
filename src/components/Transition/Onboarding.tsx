@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import SignUp from "@/features/shared/pages/Landing/SignUp";
 import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
-import { interestOptions } from "@/utils/constants";
+import { interestOptions } from "@/utils/data";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Pin } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
 	getPendingEmail,
 	getCurrentEmail,
@@ -23,7 +23,6 @@ import {
 	updateAccount,
 	findAccount,
 } from "@/utils/auth";
-import { useStoredState } from "@/hooks/useStoredState";
 import { matchMentorsForStudent } from "@/utils/mentorMatching";
 const SCHOOL_NAME = "Hollencrest Middle School";
 

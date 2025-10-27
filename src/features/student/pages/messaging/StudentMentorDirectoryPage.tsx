@@ -5,15 +5,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { mentors, Person } from "@/people";
+import { mentors, Person } from "@/utils/people";
 import profilePicture from "@/assets/placeholder-profile.svg";
 import { useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import {
-	StoredAccount,
-	getCurrentEmail,
-	getDisplayNameForAccount,
-} from "@/utils/auth";
+import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import {
 	useNotifications,
@@ -57,7 +53,10 @@ export default function StudentMentorDirectoryPage() {
 		() => ({} as ConversationStore)
 	);
 	const [conversationRequests, setConversationRequests] =
-		useStoredState<ConversationRequestStore>(CONVERSATION_REQUESTS_KEY, () => ({} as ConversationRequestStore));
+		useStoredState<ConversationRequestStore>(
+			CONVERSATION_REQUESTS_KEY,
+			() => ({} as ConversationRequestStore)
+		);
 	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
 	const navigate = useNavigate();
 	const { addNotification: addStudentNotification } = useNotifications("student");
@@ -79,7 +78,7 @@ export default function StudentMentorDirectoryPage() {
 			return [] as Person[];
 		}
 
-	return mentorAccounts.map((mentorAccount) => {
+		return mentorAccounts.map((mentorAccount) => {
 			const key = getConversationKey(currentEmail, mentorAccount.email);
 			const thread = conversationStore[key];
 			const conversation = mapMessagesForViewer(thread, currentEmail);
@@ -87,12 +86,12 @@ export default function StudentMentorDirectoryPage() {
 			const hasConnected = conversation.length > 0;
 			const name = getDisplayNameForAccount(mentorAccount) ?? mentorAccount.email;
 
-		return {
-			id: buildAccountThreadId(mentorAccount.email, "mentor"),
-			name,
-			type: mentorAccount.profile?.mentorType === "teacher" ? "teacher" : "peer",
-			matchedWithUser: false,
-			hasConnected,
+			return {
+				id: buildAccountThreadId(mentorAccount.email, "mentor"),
+				name,
+				type: mentorAccount.profile?.mentorType === "teacher" ? "teacher" : "peer",
+				matchedWithUser: false,
+				hasConnected,
 				requestedCommunication: false,
 				bio:
 					mentorAccount.profile?.mentorBio?.trim() ||
@@ -158,11 +157,18 @@ export default function StudentMentorDirectoryPage() {
 								localThreads.find((thread) => thread.id === m.id) ?? m;
 							const requestFromStore =
 								currentEmail && m.email
-									? getConversationRequest(conversationRequests, currentEmail, m.email)
+									? getConversationRequest(
+											conversationRequests,
+											currentEmail,
+											m.email
+									  )
 									: undefined;
 							const isRequested =
 								Boolean(requestFromStore) ||
-								Boolean(storedMentor.requestedCommunication && !storedMentor.hasConnected);
+								Boolean(
+									storedMentor.requestedCommunication &&
+										!storedMentor.hasConnected
+								);
 							const buttonDisabled = isRequested;
 							const buttonLabel = isRequested ? "Requested" : "Request Chat";
 
@@ -197,9 +203,9 @@ export default function StudentMentorDirectoryPage() {
 									</div>
 									<CardFooter className="mt-auto flex justify-start">
 										<Button
-												size="sm"
-												variant={isRequested ? "outline" : "default"}
-												onClick={() => {
+											size="sm"
+											variant={isRequested ? "outline" : "default"}
+											onClick={() => {
 												if (buttonDisabled) {
 													return;
 												}
@@ -235,17 +241,18 @@ export default function StudentMentorDirectoryPage() {
 													type: "request",
 													contextId: m.id,
 												});
-												const studentRouteId =
-													currentEmail
-														? buildAccountThreadId(currentEmail, "student")
-														: m.id;
+												const studentRouteId = currentEmail
+													? buildAccountThreadId(currentEmail, "student")
+													: m.id;
 												pushNotificationToOtherRole(
 													"mentor",
 													`${studentDisplayName} requested to connect with you.`,
 													{
 														type: "request",
 														contextId: studentRouteId ?? m.id,
-														link: `/mentor/home/messages/${studentRouteId ?? m.id}`,
+														link: `/mentor/home/messages/${
+															studentRouteId ?? m.id
+														}`,
 														email: m.email,
 													}
 												);

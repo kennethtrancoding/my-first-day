@@ -126,9 +126,6 @@ function SignupVerificationCode() {
 					</div>
 				</CardContent>
 				<CardFooter className="flex flex-col items-center">
-					<p id="tip" className="text-sm text-center text-muted-foreground">
-						Verification code is <strong>218058</strong> for demo purposes.
-					</p>
 					<p
 						id="error"
 						className={error ? "text-sm text-center text-destructive" : "hidden"}>

@@ -24,6 +24,7 @@ import {
 	findAccount,
 } from "@/utils/auth";
 import { matchMentorsForStudent } from "@/utils/mentorMatching";
+import { loadMapRooms } from "@/utils/teacherData";
 const SCHOOL_NAME = "Hollencrest Middle School";
 
 function Onboarding() {
@@ -117,7 +118,15 @@ function Onboarding() {
 		return Number.isNaN(parsed) ? null : parsed;
 	}, [grade]);
 	const isScheduleComplete = React.useMemo(
-		() => schedule.slice(1, 7).every((entry) => entry && entry.trim().length > 0),
+		() =>
+			schedule
+				.slice(1, 7)
+				.every(
+					(entry) =>
+						entry &&
+						entry.trim().length > 0 &&
+						loadMapRooms(buildingCoords).some((room) => room.room === entry)
+				),
 		[schedule]
 	);
 

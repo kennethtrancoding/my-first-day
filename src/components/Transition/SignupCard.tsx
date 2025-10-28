@@ -45,12 +45,12 @@ function SignupCard() {
 		}
 
 		setError(null);
-		setEmail("");
-		setPassword("");
 		setIsSubmitting(true);
 
 		setTimeout(() => {
 			setIsSubmitting(false);
+			setEmail("");
+			setPassword("");
 			navigate("/verification/");
 		}, 900);
 	}

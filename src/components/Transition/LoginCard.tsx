@@ -33,9 +33,6 @@ function LoginCard() {
 		let destination = "/onboarding/";
 
 		if (hasCompletedOnboarding) {
-			setEmail("");
-			setPassword("");
-
 			if (account.role === "mentor") {
 				const mentorType = account.profile?.mentorType ?? "student";
 				destination = mentorType === "teacher" ? "/teacher/home/" : "/mentor/home/";
@@ -47,6 +44,8 @@ function LoginCard() {
 		setIsSubmitting(true);
 		setTimeout(() => {
 			setIsSubmitting(false);
+			setEmail("");
+			setPassword("");
 			navigate(destination, { replace: true });
 		}, 900);
 	}

@@ -603,13 +603,13 @@ function StudentMessagingLayout() {
 
 									<ScrollArea className="h-[calc(100vh-20rem)] pr-2">
 										<div className="space-y-6">
-											<ListGroup
+											{/*	<ListGroup
 												title="Pending Requests"
 												items={requested}
 												showAll={showAllRequested}
 												onToggle={() => setShowAllRequested((v) => !v)}
 												emptyLabel="No pending requests"
-											/>
+											/>*/}
 
 											<ListGroup
 												title="Matched"

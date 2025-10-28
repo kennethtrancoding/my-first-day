@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import clearLocalStorage from "@/utils/storage";
 
 const LandingFooter = () => {
 	return (
@@ -32,6 +33,10 @@ const LandingFooter = () => {
 				</p>
 				<Link to="https://kennethtrancoding.com/">kennethtrancoding.com</Link>
 			</div>
+
+			<Button variant="destructive" onClick={clearLocalStorage}>
+				Reset all data
+			</Button>
 		</footer>
 	);
 };

@@ -3,9 +3,7 @@ export type Initializer<T> = T | (() => T);
 export const STORAGE_PREFIX = "cac-app:";
 
 export function resolveInitializer<T>(initialValue: Initializer<T>): T {
-	return typeof initialValue === "function"
-		? (initialValue as () => T)()
-		: (initialValue as T);
+	return typeof initialValue === "function" ? (initialValue as () => T)() : (initialValue as T);
 }
 
 export function storageKey(key: string) {
@@ -52,4 +50,25 @@ export function removeFromStorage(key: string) {
 	} catch (error) {
 		console.warn(`Failed to remove localStorage key "${key}":`, error);
 	}
+}
+
+export default function clearLocalStorage() {
+	if (typeof window === "undefined" || !window.localStorage) {
+		alert("No localStorage available.");
+		return;
+	}
+
+	const keys = Object.keys(window.localStorage);
+	for (const k of keys) {
+		if (k.startsWith(STORAGE_PREFIX)) {
+			try {
+				window.localStorage.removeItem(k);
+			} catch (err) {
+				console.warn("Failed to remove key", k, err);
+			}
+		}
+	}
+
+	console.log("Local app data cleared.");
+	window.location.reload();
 }

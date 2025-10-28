@@ -35,7 +35,7 @@ import {
 } from "@/utils/messaging";
 
 function formatWhen(ts: number | string) {
-	const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
+	const d = new Date(ts);
 	const now = new Date();
 	const sameDay =
 		d.getFullYear() === now.getFullYear() &&
@@ -47,16 +47,9 @@ function formatWhen(ts: number | string) {
 }
 
 function cloneMentorThreads(matchedIds?: Set<number>): Person[] {
-	const { account } = useCurrentAccount();
-	const profileMatches = account?.profile?.matchedMentorIds;
-	const matchedMentorIds = React.useMemo(() => {
-		const matches = profileMatches ?? [];
-		return new Set(matches.slice(0, 4).map((match) => match.mentor.id));
-	}, [profileMatches]);
-
 	return mentors.map((mentor) => ({
 		...mentor,
-		matchedWithUser: matchedIds ? matchedIds.has(mentor.id) : matchedMentorIds.has(mentor.id),
+		matchedWithUser: matchedIds ? matchedIds.has(mentor.id) : false,
 		conversation: mentor.conversation.map((message) => ({ ...message })),
 	}));
 }

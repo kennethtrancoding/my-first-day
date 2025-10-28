@@ -655,6 +655,7 @@ function Onboarding() {
 						<CardFooter className="w-full flex flex-col gap-2">
 							<Button
 								type="submit"
+								onClick={() => handleScheduleContinue()}
 								disabled={isSubmitting || !isScheduleComplete}
 								className="w-full">
 								{isSubmitting ? (

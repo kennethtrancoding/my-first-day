@@ -25,7 +25,7 @@ const MentorRegistrationPage = () => {
 		[currentEmail]
 	);
 
-	const [role, setRole] = useStoredState<MentorRole>(`${storagePrefix}:role`, "teacher");
+	const [role, setRole] = useStoredState<MentorRole>(`${storagePrefix}:role`, "student");
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const navigate = useNavigate();
 
@@ -201,19 +201,19 @@ const MentorRegistrationPage = () => {
 							</TabsContent>
 
 							<TabsContent value="student" className="space-y-6">
-								<div className="grid gap-2">
-									<Label htmlFor="student-name">Full Name</Label>
-									<Input
-										id="student-name"
-										type="text"
-										placeholder="Alex Johnson"
-										required
-										value={studentName}
-										onChange={(e) => setStudentName(e.target.value)}
-									/>
-								</div>
-
 								<div className="grid gap-4 md:grid-cols-2">
+									{" "}
+									<div className="grid gap-2">
+										<Label htmlFor="student-name">Full Name</Label>
+										<Input
+											id="student-name"
+											type="text"
+											placeholder="Alex Johnson"
+											required
+											value={studentName}
+											onChange={(e) => setStudentName(e.target.value)}
+										/>
+									</div>
 									<div className="grid gap-2">
 										<Label htmlFor="student-grade">Grade</Label>
 										<Input
@@ -224,16 +224,17 @@ const MentorRegistrationPage = () => {
 											onChange={(e) => setStudentGrade(e.target.value)}
 										/>
 									</div>
-									<div className="grid gap-2">
-										<Label htmlFor="student-experience">Experience Areas</Label>
-										<Input
-											id="student-experience"
-											placeholder="Clubs, electives, first week tips"
-											required
-											value={studentExperience}
-											onChange={(e) => setStudentExperience(e.target.value)}
-										/>
-									</div>
+								</div>
+
+								<div className="grid gap-2">
+									<Label htmlFor="student-experience">Experience Areas</Label>
+									<Input
+										id="student-experience"
+										placeholder="Clubs, electives, first week tips"
+										required
+										value={studentExperience}
+										onChange={(e) => setStudentExperience(e.target.value)}
+									/>
 								</div>
 								<div className="grid gap-2">
 									<Label htmlFor="student-why">Why do you want to mentor?</Label>

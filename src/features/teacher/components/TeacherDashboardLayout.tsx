@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/comp
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { findAccount, getCurrentId } from "@/utils/auth";
 import TeacherDashboardSidebar from "./TeacherDashboardSidebar";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -17,30 +17,27 @@ interface TeacherDashboardLayoutProps {
 
 function TeacherDashboardLayout({ activePage, children }: TeacherDashboardLayoutProps) {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) : null),
-		[currentEmail]
-	);
+	const currentId = React.useMemo(() => getCurrentId(), []);
+	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
 	const mentorType = account?.profile?.mentorType ?? "student";
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const isAuthorized = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail &&
+				currentId &&
 					account &&
 					account.role === "mentor" &&
 					mentorType === "teacher" &&
 					hasCompletedOnboarding
 			),
-		[account, currentEmail, mentorType, hasCompletedOnboarding]
+		[account, currentId, mentorType, hasCompletedOnboarding]
 	);
 
 	const [isNotificationOpen, setIsNotificationOpen] = React.useState(false);
 	const { notifications, unreadCount, markAllRead } = useNotifications("mentor");
 
 	React.useEffect(() => {
-		if (!currentEmail || !account) {
+		if (!currentId || !account) {
 			navigate("/", { replace: true });
 			return;
 		}
@@ -62,7 +59,7 @@ function TeacherDashboardLayout({ activePage, children }: TeacherDashboardLayout
 		if (mentorType !== "teacher") {
 			navigate("/mentor/home/", { replace: true });
 		}
-	}, [account, currentEmail, hasCompletedOnboarding, mentorType, navigate]);
+	}, [account, currentId, hasCompletedOnboarding, mentorType, navigate]);
 
 	React.useEffect(() => {
 		if (isNotificationOpen) {
@@ -149,7 +146,9 @@ function TeacherDashboardLayout({ activePage, children }: TeacherDashboardLayout
 													: "bg-muted/50 hover:bg-muted/40"
 											}`}>
 											<div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-												<Badge variant="outline" className="px-2 text-[10px]">
+												<Badge
+													variant="outline"
+													className="px-2 text-[10px]">
 													{formatTypeLabel(notif.type)}
 												</Badge>
 												<span>{formatTimestamp(notif.createdAt)}</span>

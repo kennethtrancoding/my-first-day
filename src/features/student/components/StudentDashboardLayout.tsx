@@ -17,29 +17,26 @@ interface StudentDashboardLayoutProps {
 
 function StudentDashboardLayout({ activePage, children }: StudentDashboardLayoutProps) {
 	const navigate = useNavigate();
-	const { account, currentEmail } = useCurrentAccount();
+	const { account, currentId } = useCurrentAccount();
 
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const isAuthorized = React.useMemo(
-		() =>
-			Boolean(
-				currentEmail && account && account.role === "student" && hasCompletedOnboarding
-			),
-		[account, currentEmail, hasCompletedOnboarding]
+		() => Boolean(currentId && account && account.role === "student" && hasCompletedOnboarding),
+		[account, currentId, hasCompletedOnboarding]
 	);
 	const shouldRedirectOnboarding = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail &&
+				currentId &&
 					account &&
 					account.role === "student" &&
 					account.wentThroughOnboarding !== true
 			),
-		[account, currentEmail]
+		[account, currentId]
 	);
 	const shouldRedirectHome = React.useMemo(
-		() => !currentEmail || !account || account.role !== "student",
-		[account, currentEmail]
+		() => !currentId || !account || account.role !== "student",
+		[account, currentId]
 	);
 
 	const [isNotificationOpen, setIsNotificationOpen] = React.useState(false);
@@ -141,7 +138,9 @@ function StudentDashboardLayout({ activePage, children }: StudentDashboardLayout
 													: "bg-muted/50 hover:bg-muted/40"
 											}`}>
 											<div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-												<Badge variant="outline" className="px-2 text-[10px]">
+												<Badge
+													variant="outline"
+													className="px-2 text-[10px]">
 													{formatTypeLabel(notif.type)}
 												</Badge>
 												<span>{formatTimestamp(notif.createdAt)}</span>

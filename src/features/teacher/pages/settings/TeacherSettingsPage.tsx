@@ -18,13 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
 import TeacherDashboardLayout from "@/features/teacher/components/TeacherDashboardLayout";
-import {
-	findAccount,
-	getCurrentEmail,
-	logout,
-	updateAccount,
-	updateAccountEmail,
-} from "@/utils/auth";
+import { findAccount, getCurrentId, logout, updateAccount, updateAccountEmail } from "@/utils/auth";
 import { useNavigate } from "react-router-dom";
 
 const textareaClassName =
@@ -67,52 +61,31 @@ function SaveButton({
 }
 
 function TeacherSettingsPage() {
-	const [currentEmail, setCurrentEmail] = React.useState(() => getCurrentEmail());
-	const storageIdentity = currentEmail || "anonymous-teacher";
+	const navigate = useNavigate();
+
+	// currentId is a NUMBER (account id)
+	const [currentId] = React.useState<number | null>(() => getCurrentId() ?? null);
+	const storageIdentity = currentId ?? "anonymous-teacher";
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:teacherSettings`,
 		[storageIdentity]
 	);
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) : null),
-		[currentEmail]
-	);
-	const navigate = useNavigate();
+
+	// Look up account by id
+	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
 
 	const fallbackName = React.useMemo(() => {
-		if (!currentEmail) {
-			return "Teacher";
-		}
+		if (!account) return "Teacher";
+		const profile = account.profile ?? {};
+		const displayNameFromProfile = profile.displayName?.trim();
+		if (displayNameFromProfile) return displayNameFromProfile;
 
-		if (account) {
-			const profile = account.profile ?? {};
-			const displayNameFromProfile = profile.displayName?.trim();
-			if (displayNameFromProfile) {
-				return displayNameFromProfile;
-			}
-
-			const composedName = [profile.firstName, profile.lastName]
-				.filter((part): part is string => Boolean(part && part.trim()))
-				.map((part) => part?.trim())
-				.join(" ");
-
-			if (composedName) {
-				return composedName;
-			}
-		}
-
-		const localPart = currentEmail.split("@")[0] ?? "";
-		const cleaned = localPart.replace(/[._-]+/g, " ").trim();
-		if (cleaned) {
-			return cleaned
-				.split(" ")
-				.filter(Boolean)
-				.map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-				.join(" ");
-		}
-
-		return "Teacher";
-	}, [account, currentEmail]);
+		const composedName = [profile.firstName, profile.lastName]
+			.filter((part): part is string => Boolean(part && part.trim()))
+			.map((part) => part.trim())
+			.join(" ");
+		return composedName || "Teacher";
+	}, [account]);
 
 	const [displayName, setDisplayName] = useStoredState<string>(
 		`${storagePrefix}:displayName`,
@@ -148,12 +121,7 @@ function TeacherSettingsPage() {
 	);
 	const [emailAnnouncements, setEmailAnnouncements] = useStoredState<boolean>(
 		`${storagePrefix}:emailAnnouncements`,
-		() => {
-			if (account?.settings?.emailNotificationsEnabled != null) {
-				return account.settings.emailNotificationsEnabled;
-			}
-			return true;
-		}
+		() => account?.settings?.emailNotificationsEnabled ?? true
 	);
 	const [weeklyDigestDay, setWeeklyDigestDay] = useStoredState<string>(
 		`${storagePrefix}:digestDay`,
@@ -179,8 +147,20 @@ function TeacherSettingsPage() {
 		`${storagePrefix}:alertNotes`,
 		() => ""
 	);
-	const [emailInput, setEmailInput] = React.useState(currentEmail ?? "");
+
+	// Email (string) UI state is based on account.email
+	const [emailInput, setEmailInput] = React.useState<string>(account?.email ?? "");
 	const [emailError, setEmailError] = React.useState<string | null>(null);
+
+	React.useEffect(() => {
+		// Keep display name non-empty
+		if (!displayName.trim()) setDisplayName(fallbackName);
+	}, [displayName, fallbackName, setDisplayName]);
+
+	React.useEffect(() => {
+		// Update email input when account changes
+		setEmailInput(account?.email ?? "");
+	}, [account?.email]);
 
 	const [fieldStatus, setFieldStatus] = React.useState<Record<FieldKey, SaveState>>({
 		profile: "idle",
@@ -189,16 +169,6 @@ function TeacherSettingsPage() {
 		alerts: "idle",
 		email: "idle",
 	});
-
-	React.useEffect(() => {
-		if (!displayName.trim()) {
-			setDisplayName(fallbackName);
-		}
-	}, [displayName, fallbackName, setDisplayName]);
-
-	React.useEffect(() => {
-		setEmailInput(currentEmail ?? "");
-	}, [currentEmail]);
 
 	function simulateSave(field: FieldKey, action?: () => void) {
 		setFieldStatus((prev) => ({ ...prev, [field]: "saving" }));
@@ -212,12 +182,10 @@ function TeacherSettingsPage() {
 	function handleProfileSave() {
 		simulateSave("profile", () => {
 			const normalizedName = displayName.trim() || fallbackName;
-			if (normalizedName !== displayName) {
-				setDisplayName(normalizedName);
-			}
+			if (normalizedName !== displayName) setDisplayName(normalizedName);
 
-			if (currentEmail) {
-				updateAccount(currentEmail, {
+			if (currentId) {
+				updateAccount(currentId, {
 					profile: {
 						displayName: normalizedName,
 						teacherTitle,
@@ -231,8 +199,8 @@ function TeacherSettingsPage() {
 
 	function handleAvailabilitySave() {
 		simulateSave("availability", () => {
-			if (currentEmail) {
-				updateAccount(currentEmail, {
+			if (currentId) {
+				updateAccount(currentId, {
 					profile: {
 						mentorOfficeHours: officeHours,
 						teacherAvailabilityNotes: availabilityNotes,
@@ -247,8 +215,8 @@ function TeacherSettingsPage() {
 
 	function handleDigestSave() {
 		simulateSave("digest-day", () => {
-			if (currentEmail) {
-				updateAccount(currentEmail, {
+			if (currentId) {
+				updateAccount(currentId, {
 					settings: {
 						digestWeekday: weeklyDigestDay,
 						digestTime: weeklyDigestTime,
@@ -259,7 +227,7 @@ function TeacherSettingsPage() {
 	}
 
 	function handleEmailUpdate() {
-		if (!currentEmail) {
+		if (!currentId) {
 			setEmailError("You must be signed in to change your email.");
 			return;
 		}
@@ -272,22 +240,22 @@ function TeacherSettingsPage() {
 			return;
 		}
 
-		if (trimmed === currentEmail.toLowerCase()) {
+		const currentEmail = account?.email?.toLowerCase() ?? "";
+		if (trimmed === currentEmail) {
 			setEmailError("You're already using this email.");
 			return;
 		}
 
 		setEmailError(null);
 		setFieldStatus((prev) => ({ ...prev, email: "saving" }));
-		const result = updateAccountEmail(currentEmail, trimmed);
 
+		const result = updateAccountEmail(currentId, trimmed); // expects (id, newEmail)
 		if (!result.success || !result.email) {
 			setEmailError(result.error ?? "That email is already in use.");
 			setFieldStatus((prev) => ({ ...prev, email: "idle" }));
 			return;
 		}
 
-		setCurrentEmail(result.email);
 		setEmailInput(result.email);
 		setFieldStatus((prev) => ({ ...prev, email: "saved" }));
 		setTimeout(() => setFieldStatus((prev) => ({ ...prev, email: "idle" })), 1400);
@@ -295,11 +263,14 @@ function TeacherSettingsPage() {
 
 	function handleAlertSave() {
 		simulateSave("alerts", () => {
-			if (currentEmail) {
-				updateAccount(currentEmail, {
+			if (currentId) {
+				updateAccount(currentId, {
 					settings: {
 						mapAlertsEnabled: mapAlerts,
 						smsUrgentAlertsEnabled: urgentSms,
+						// keep resourceReminders if you persist it:
+						resourceRemindersEnabled: resourceReminders,
+						emailNotificationsEnabled: emailAnnouncements,
 					},
 				});
 			}
@@ -307,7 +278,9 @@ function TeacherSettingsPage() {
 	}
 
 	function handlePasswordReset() {
-		navigate("/reset-password/", { state: { email: currentEmail ?? "" } });
+		if (!currentId) return;
+		// Pass ID to the reset route
+		navigate("/reset-password/", { state: { id: currentId } });
 	}
 
 	function handleLogout() {
@@ -509,6 +482,7 @@ function TeacherSettingsPage() {
 											onCheckedChange={setUrgentSms}
 										/>
 									</div>
+
 									<div className="space-y-2">
 										<Label htmlFor="alert-note">Additional notes</Label>
 										<textarea
@@ -524,6 +498,7 @@ function TeacherSettingsPage() {
 									</div>
 								</CardContent>
 							</Card>
+
 							<Card>
 								<CardHeader className="flex flex-row items-center justify-between gap-4">
 									<div>
@@ -566,6 +541,7 @@ function TeacherSettingsPage() {
 											))}
 										</div>
 									</div>
+
 									<div className="grid w-full max-w-xs gap-2">
 										<Label htmlFor="digest-time">Time</Label>
 										<Input
@@ -577,6 +553,7 @@ function TeacherSettingsPage() {
 											}
 										/>
 									</div>
+
 									<p className="text-xs text-muted-foreground">
 										Your weekly digest will send on {weeklyDigestDay}s at{" "}
 										{weeklyDigestTime}.
@@ -601,7 +578,7 @@ function TeacherSettingsPage() {
 								<CardContent className="space-y-4">
 									<div className="space-y-2">
 										<Label>Current email</Label>
-										<Input value={currentEmail ?? ""} readOnly disabled />
+										<Input value={account?.email ?? ""} readOnly disabled />
 									</div>
 									<div className="space-y-2">
 										<Label htmlFor="teacher-new-email">New email</Label>
@@ -625,12 +602,21 @@ function TeacherSettingsPage() {
 							</Card>
 						</div>
 
-						<Button
-							variant="outline"
-							className="w-full sm:w-auto hover:bg-red-50 hover:text-red-600"
-							onClick={handleLogout}>
-							<LogOut className="h-4 w-4 mr-2" /> Log Out
-						</Button>
+						<div className="flex gap-2">
+							<Button
+								variant="secondary"
+								className="w-full sm:w-auto"
+								onClick={handlePasswordReset}
+								title="Reset your password">
+								Reset password
+							</Button>
+							<Button
+								variant="outline"
+								className="w-full sm:w-auto hover:bg-red-50 hover:text-red-600"
+								onClick={handleLogout}>
+								<LogOut className="h-4 w-4 mr-2" /> Log Out
+							</Button>
+						</div>
 					</TabsContent>
 				</Tabs>
 			</div>

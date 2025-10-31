@@ -26,11 +26,12 @@ import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import {
-	getCurrentEmail,
+	getCurrentId,
 	updateAccount,
 	logout,
 	findAccount,
 	updateAccountEmail,
+	findAccountUsingEmail,
 } from "@/utils/auth";
 import { matchMentorsForStudent } from "@/utils/mentorMatching";
 import { writeToStorage } from "@/utils/storage";
@@ -81,20 +82,18 @@ function SaveButton({
 }
 
 function StudentSettingsPage() {
-	const [currentEmail, setCurrentEmail] = React.useState(() => getCurrentEmail());
-	const storageIdentity = currentEmail || "anonymous-student";
+	const [currentId, setCurrentId] = React.useState(() => getCurrentId());
+	const currentEmail = findAccount(currentId)?.email ?? "";
+	const storageIdentity = currentId || 0;
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:studentSettings`,
 		[storageIdentity]
 	);
 
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) : null),
-		[currentEmail]
-	);
+	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
 
 	const fallbackName = React.useMemo(() => {
-		if (!currentEmail) {
+		if (!currentId) {
 			return "Student";
 		}
 
@@ -263,7 +262,7 @@ function StudentSettingsPage() {
 			}
 
 			if (currentEmail) {
-				updateAccount(currentEmail, {
+				updateAccount(currentId, {
 					profile: {
 						displayName: nextName,
 					},
@@ -277,21 +276,21 @@ function StudentSettingsPage() {
 		if (currentEmail) {
 			switch (field) {
 				case "interests":
-					updateAccount(currentEmail, {
+					updateAccount(currentId, {
 						profile: {
 							interests: parsedInterests,
 						},
 					});
 					break;
 				case "clothingSize":
-					updateAccount(currentEmail, {
+					updateAccount(currentId, {
 						profile: {
 							clothingSize,
 						},
 					});
 					break;
 				case "bio":
-					updateAccount(currentEmail, {
+					updateAccount(currentId, {
 						profile: {
 							bio,
 						},
@@ -303,7 +302,7 @@ function StudentSettingsPage() {
 						normalizedSchedule.push("");
 					}
 					const trimmedSchedule = normalizedSchedule.slice(0, 7);
-					updateAccount(currentEmail, {
+					updateAccount(currentId, {
 						profile: {
 							schedule: trimmedSchedule,
 						},
@@ -313,7 +312,7 @@ function StudentSettingsPage() {
 					break;
 				}
 				case "notifications":
-					updateAccount(currentEmail, {
+					updateAccount(currentId, {
 						settings: {
 							emailNotificationsEnabled,
 							pushNotificationsEnabled: pushNotificationsEnabled,
@@ -346,7 +345,7 @@ function StudentSettingsPage() {
 
 		setEmailError(null);
 		setSaveStatus("email", "saving");
-		const result = updateAccountEmail(currentEmail, trimmed);
+		const result = updateAccountEmail(currentId, trimmed);
 
 		if (!result.success || !result.email) {
 			setEmailError(result.error ?? "That email is already in use.");
@@ -354,7 +353,7 @@ function StudentSettingsPage() {
 			return;
 		}
 
-		setCurrentEmail(result.email);
+		setCurrentId(findAccountUsingEmail(result.email).id);
 		setEmailInput(result.email);
 		setSaveStatus("email", "saved");
 		setTimeout(() => setSaveStatus("email", "idle"), 1500);
@@ -372,7 +371,7 @@ function StudentSettingsPage() {
 
 	const handleSwitchToMentor = () => {
 		if (currentEmail) {
-			updateAccount(currentEmail, { role: "mentor" });
+			updateAccount(currentId, { role: "mentor" });
 		}
 		navigate("/mentor/registration/");
 	};

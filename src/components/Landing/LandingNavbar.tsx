@@ -1,16 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { findAccount, getCurrentId } from "@/utils/auth";
 import { Home, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const navLinks = [{ label: "Home", to: "/" }];
 
 function redirectToDashboard() {
-	const email = getCurrentEmail();
-	const account = email ? findAccount(email) : null;
+	const id = getCurrentId();
+	const account = id ? findAccount(id) : null;
 
-	if (!email || !account) {
+	if (!id || !account) {
 		window.location.href = "/log-in/";
 		return;
 	}

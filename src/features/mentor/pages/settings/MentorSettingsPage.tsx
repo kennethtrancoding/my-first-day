@@ -20,11 +20,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MentorDashboardLayout from "@/features/mentor/components/MentorDashboardLayout";
 import { useStoredState } from "@/hooks/useStoredState";
 import {
-	getCurrentEmail,
+	getCurrentId,
 	updateAccount,
 	logout,
 	findAccount,
 	updateAccountEmail,
+	findAccountUsingEmail,
 } from "@/utils/auth";
 import { interestOptions } from "@/utils/data";
 import { useNavigate } from "react-router-dom";
@@ -69,21 +70,19 @@ function SaveButton({
 }
 
 const MentorSettingsPage = () => {
-	const [currentEmail, setCurrentEmail] = React.useState(() => getCurrentEmail());
-	const storageIdentity = currentEmail || "anonymous-mentor";
+	const [currentId, setCurrentId] = React.useState(() => getCurrentId());
+	const [currentEmail, setCurrentEmail] = React.useState(() => findAccount(currentId).email);
+	const storageIdentity = currentId || 0;
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:mentorSettings`,
 		[storageIdentity]
 	);
 	const navigate = useNavigate();
 
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) : null),
-		[currentEmail]
-	);
+	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
 
 	const fallbackName = React.useMemo(() => {
-		if (!currentEmail) {
+		if (!currentId) {
 			return "Mentor";
 		}
 
@@ -104,7 +103,7 @@ const MentorSettingsPage = () => {
 			}
 		}
 
-		const localPart = currentEmail.split("@")[0] ?? "";
+		const localPart = findAccount(currentId).email.split("@")[0] ?? "";
 		const cleaned = localPart.replace(/[._-]+/g, " ").trim();
 		if (cleaned) {
 			return cleaned
@@ -115,13 +114,13 @@ const MentorSettingsPage = () => {
 		}
 
 		return "Mentor";
-	}, [account, currentEmail]);
+	}, [account, currentId]);
 
 	React.useEffect(() => {
-		if (!currentEmail || !account || account.role !== "mentor") {
+		if (!currentId || !account || account.role !== "mentor") {
 			navigate("/", { replace: true });
 		}
-	}, [account, currentEmail, navigate]);
+	}, [account, currentId, navigate]);
 
 	const [displayName, setDisplayName] = useStoredState<string>(
 		`${storagePrefix}:name`,
@@ -182,7 +181,7 @@ const MentorSettingsPage = () => {
 
 	React.useEffect(() => {
 		setEmailInput(currentEmail || "mentor@example.org");
-	}, [currentEmail]);
+	}, [currentId]);
 
 	const [emailNotifications, setEmailNotifications] = useStoredState<boolean>(
 		`${storagePrefix}:emailNotifications`,
@@ -227,8 +226,8 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleAvailabilitySave() {
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				settings: {
 					availability,
 				},
@@ -238,8 +237,8 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleBioSave() {
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				profile: {
 					mentorBio: bio,
 				},
@@ -249,8 +248,8 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleOfficeHoursSave() {
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				profile: {
 					mentorOfficeHours: officeHours,
 				},
@@ -260,8 +259,8 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleInterestsSave() {
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				profile: {
 					interests: parsedInterests,
 				},
@@ -271,8 +270,8 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleNotifSave() {
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				settings: {
 					emailNotificationsEnabled: emailNotifications,
 					requestAlerts,
@@ -283,8 +282,8 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleDigestSave() {
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				settings: {
 					digestWeekday,
 					digestTime,
@@ -295,7 +294,7 @@ const MentorSettingsPage = () => {
 	}
 
 	function handleEmailUpdate() {
-		if (!currentEmail) {
+		if (!currentId) {
 			setEmailError("You must be signed in to change your email.");
 			return;
 		}
@@ -315,7 +314,7 @@ const MentorSettingsPage = () => {
 
 		setEmailError(null);
 		setEmailStatus("saving");
-		const result = updateAccountEmail(currentEmail, trimmed);
+		const result = updateAccountEmail(currentId, trimmed);
 
 		if (!result.success || !result.email) {
 			setEmailError(result.error ?? "That email is already in use.");
@@ -323,14 +322,14 @@ const MentorSettingsPage = () => {
 			return;
 		}
 
-		setCurrentEmail(result.email);
+		setCurrentId(findAccountUsingEmail(result.email).id);
 		setEmailInput(result.email);
 		setEmailStatus("saved");
 		setTimeout(() => setEmailStatus("idle"), 1500);
 	}
 
 	function handlePasswordReset() {
-		const initialEmailState = currentEmail ?? "";
+		const initialEmailState = currentId ?? "";
 		navigate("/reset-password/", { state: { email: initialEmailState } });
 	}
 
@@ -348,8 +347,8 @@ const MentorSettingsPage = () => {
 		const nameToPersist = (displayName ?? "").trim() || fallbackName || "Mentor";
 		setDisplayName(nameToPersist);
 
-		if (currentEmail) {
-			updateAccount(currentEmail, {
+		if (currentId) {
+			updateAccount(currentId, {
 				profile: {
 					displayName: nameToPersist,
 				},
@@ -571,7 +570,7 @@ const MentorSettingsPage = () => {
 							<CardContent className="space-y-4">
 								<div className="space-y-2">
 									<Label>Current email</Label>
-									<Input value={currentEmail ?? ""} readOnly disabled />
+									<Input value={currentId ?? ""} readOnly disabled />
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="mentor-new-email">New email</Label>

@@ -18,12 +18,12 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail } from "@/utils/auth";
+import { getCurrentId } from "@/utils/auth";
 
 const StudentClubDirectoryPage = () => {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest", []);
-	const storagePrefix = React.useMemo(() => `user:${currentEmail}:studentClubs`, [currentEmail]);
+	const currentId = React.useMemo(() => getCurrentId() || "guest", []);
+	const storagePrefix = React.useMemo(() => `user:${currentId}:studentClubs`, [currentId]);
 	const [searchTerm, setSearchTerm] = useStoredState<string>(`${storagePrefix}:searchTerm`, "");
 	const [selectedCategory, setSelectedCategory] = useStoredState<string>(
 		`${storagePrefix}:selectedCategory`,

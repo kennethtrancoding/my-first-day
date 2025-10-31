@@ -33,14 +33,16 @@ function MatchedMentorList({ matches }: { matches: MentorMatch[] }) {
 					/>
 					<div className="flex flex-col">
 						<div className="flex flex-row gap-2 items-baseline">
-							<p className="font-medium text-lg">{mentor.name}</p>
-							{mentor.grade && (
+							<p className="font-medium text-lg">{mentor.profile.displayName}</p>
+							{mentor.profile.grade && (
 								<p className="text-sm text-muted-foreground">
-									{mentor.grade}th Grade
+									{mentor.profile.grade}th Grade
 								</p>
 							)}
 						</div>
-						<p className="text-sm text-muted-foreground line-clamp-1">{mentor.bio}</p>
+						<p className="text-sm text-muted-foreground line-clamp-1">
+							{mentor.profile.bio}
+						</p>
 					</div>
 				</div>
 				<Button onClick={() => navigate(`/student/home/messages/${mentor.id}/`)}>

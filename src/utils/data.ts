@@ -1,8 +1,8 @@
 import { Map as MapIcon, FileText, Sparkles, Users, CalendarDays, Settings } from "lucide-react";
 import type { NavigateFunction } from "react-router-dom";
 import { mentors } from "@/utils/people";
-import type { Person } from "@/utils/people";
 import { buildingCoords, type RoomData } from "@/features/shared/pages/map/buildingCoords";
+import { Account } from "./auth";
 
 export const upcomingEvents = [
 	{
@@ -33,7 +33,7 @@ export type Club = {
 	advisor: string;
 	contactEmail: string;
 	advisorId?: number;
-	advisorProfile?: Person;
+	advisorProfile?: Account;
 	locationRoom?: string;
 	locationData?: RoomData;
 	color: string;
@@ -60,8 +60,10 @@ type ClubSeed = Omit<
 	contactEmail?: string;
 };
 
-const teacherLookup = new Map<number, Person>(
-	mentors.filter((person) => person.type === "teacher").map((person) => [person.id, person])
+const teacherLookup = new Map<number, Account>(
+	mentors
+		.filter((person) => person.profile.mentorType === "teacher")
+		.map((person) => [person.id, person])
 );
 
 const roomLookup = new Map<string, RoomData>(buildingCoords.map((room) => [room.room, room]));
@@ -499,7 +501,7 @@ export const clubDirectory: Club[] = clubDirectorySeeds.map((club) => {
 
 	return {
 		...club,
-		advisor: advisor?.name ?? "No advisor found",
+		advisor: advisor?.profile.displayName ?? "No advisor found",
 		contactEmail: contactEmail || "info@wcusd.org",
 		advisorProfile: advisor,
 		location: location || "No location found",

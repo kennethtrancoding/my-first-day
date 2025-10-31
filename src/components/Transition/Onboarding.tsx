@@ -14,12 +14,12 @@ import SignUp from "@/features/shared/pages/Landing/SignUp";
 import { buildingCoords } from "@/features/shared/pages/map/buildingCoords";
 import { interestOptions } from "@/utils/data";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Dot, Loader2 } from "lucide-react";
 import {
-	getPendingEmail,
-	getCurrentEmail,
-	setCurrentEmail,
-	clearPendingEmail,
+	getPendingId,
+	getCurrentId,
+	setCurrentId,
+	clearPendingId,
 	updateAccount,
 	findAccount,
 } from "@/utils/auth";
@@ -30,18 +30,18 @@ const SCHOOL_NAME = "Hollencrest Middle School";
 function Onboarding() {
 	const navigate = useNavigate();
 
-	const emailContext = React.useMemo(() => {
-		const pending = getPendingEmail();
+	const idContext = React.useMemo(() => {
+		const pending = getPendingId();
 		if (pending) return pending;
-		const current = getCurrentEmail();
-		return current || "guest";
+		const current = getCurrentId();
+		return current || 0;
 	}, []);
 	const account = React.useMemo(() => {
-		if (emailContext === "guest") {
+		if (idContext === 0) {
 			return null;
 		}
-		return findAccount(emailContext) ?? null;
-	}, [emailContext]);
+		return findAccount(idContext) ?? null;
+	}, [idContext]);
 
 	const [currentStep, setCurrentStep] = React.useState<number>(2);
 
@@ -144,8 +144,8 @@ function Onboarding() {
 			options?.schedule ??
 			schedule.map((entry) => (typeof entry === "string" ? entry.trim() : ""));
 
-		if (emailContext !== "guest") {
-			updateAccount(emailContext, {
+		if (idContext !== 0) {
+			updateAccount(idContext, {
 				role: normalizedRole,
 				wentThroughOnboarding: true,
 				profile: {
@@ -156,8 +156,8 @@ function Onboarding() {
 					schedule: scheduleToPersist,
 				},
 			});
-			setCurrentEmail(emailContext);
-			clearPendingEmail();
+			setCurrentId(idContext);
+			clearPendingId();
 		}
 
 		setRole(resolvedRole);
@@ -176,8 +176,8 @@ function Onboarding() {
 	function selectRole(selectedRole: "Student" | "Mentor") {
 		setRole(selectedRole);
 		if (selectedRole === "Student") {
-			if (emailContext !== "guest") {
-				updateAccount(emailContext, {
+			if (idContext !== 0) {
+				updateAccount(idContext, {
 					role: "student",
 				});
 			}
@@ -185,8 +185,8 @@ function Onboarding() {
 			return;
 		}
 
-		if (emailContext !== "guest") {
-			updateAccount(emailContext, {
+		if (idContext !== 0) {
+			updateAccount(idContext, {
 				role: "mentor",
 			});
 		}
@@ -196,8 +196,8 @@ function Onboarding() {
 
 	function handleStudentInfoSubmit() {
 		if (grade.trim() && interests.trim()) {
-			if (emailContext !== "guest") {
-				updateAccount(emailContext, {
+			if (idContext !== 0) {
+				updateAccount(idContext, {
 					profile: {
 						firstName,
 						lastName,
@@ -232,8 +232,8 @@ function Onboarding() {
 
 	function handleNameContinue() {
 		if (firstName.trim() && lastName.trim()) {
-			if (emailContext !== "guest") {
-				updateAccount(emailContext, {
+			if (idContext !== 0) {
+				updateAccount(idContext, {
 					role: "student",
 					profile: {
 						firstName,
@@ -678,12 +678,13 @@ function Onboarding() {
 							</Button>
 							{errorNotice}
 
-							<div className="flex flex-grow gap-4">
+							<div className="flex items-center text-sm text-muted-foreground text-center mt-2">
 								<button
 									className="text-sm text-muted-foreground hover:underline cursor-pointer"
 									onClick={() => setCurrentStep(4)}>
 									&larr; Back
 								</button>
+								<Dot size={16} />
 								<button
 									className="text-sm text-muted-foreground hover:underline cursor-pointer"
 									onClick={() => {

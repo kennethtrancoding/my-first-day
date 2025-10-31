@@ -10,8 +10,7 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import OverlayPanel from "@/components/ui/studentMentorMapOverlayPanel";
 import { MAP_LABEL_TYPE_COLORS } from "@/utils/data";
 import { mentors } from "@/utils/people";
-import type { Person } from "@/utils/people";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { Account, findAccount, getCurrentId } from "@/utils/auth";
 import { useStoredState } from "@/hooks/useStoredState";
 const DefaultIcon = L.icon({
 	iconUrl,
@@ -32,7 +31,7 @@ type SelectedRoomDetail = {
 	period?: number;
 	typeColor: string;
 };
-type TeacherRoomType = Record<string, Person>;
+type TeacherRoomType = Record<string, Account>;
 
 function ZoomControlBottomLeft() {
 	const map = useMap();
@@ -52,10 +51,10 @@ function normalize(s: string | undefined) {
 
 export default function CampusMap() {
 	const schedule = useMemo(() => {
-		const currentEmail = getCurrentEmail();
-		const account = findAccount(currentEmail);
+		const currentId = getCurrentId();
+		const account = findAccount(currentId);
 		const schedule = account.profile.schedule || [];
-		return { account, schedule, currentEmail };
+		return { account, schedule, currentId };
 	}, []).schedule;
 	const normalizedSchedule = useMemo(
 		() =>
@@ -76,8 +75,8 @@ export default function CampusMap() {
 	const peopleByRoom = useMemo<TeacherRoomType>(() => {
 		const result: TeacherRoomType = {};
 		mentors.forEach((person) => {
-			if (person.type === "teacher" && person.roomNumber) {
-				result[normalize(person.roomNumber)] = person;
+			if (person.profile.mentorType === "teacher" && person.profile.teacherRoom) {
+				result[normalize(person.profile.teacherRoom)] = person;
 			}
 		});
 		return result;
@@ -145,7 +144,7 @@ export default function CampusMap() {
 				const person = peopleByRoom[normalizedRoom];
 				const period = getPeriodForRoom(trimmedRoom) ?? index;
 				const typeLabel = person
-					? person.type === "teacher"
+					? person.profile.mentorType === "teacher"
 						? "Teacher"
 						: "Peer Mentor"
 					: found?.type ?? "Unknown";
@@ -153,8 +152,8 @@ export default function CampusMap() {
 					period,
 					room: trimmedRoom,
 					type: typeLabel,
-					department: person?.department,
-					teacher: person?.name,
+					department: person?.profile.teacherDepartment,
+					teacher: person?.profile.displayName,
 					color: getTypeColor(found?.type),
 				};
 			})
@@ -223,8 +222,12 @@ export default function CampusMap() {
                     <div style="font-family: sans-serif; line-height: 1.4;">
                       <h3 style="margin: 0 0 4px 0;">Room ${b.room}</h3>
                       ${b.type ? `Type: ${b.type}<br/>` : ""}
-                      ${teacher ? `Teacher: ${teacher.name}<br/>` : ""}
-                      ${teacher && teacher.department ? `Subject: ${teacher.department}<br/>` : ""}
+                      ${teacher ? `Teacher: ${teacher.profile.displayName}<br/>` : ""}
+                      ${
+							teacher && teacher.profile.teacherDepartment
+								? `Subject: ${teacher.profile.teacherDepartment}<br/>`
+								: ""
+						}
                       ${
 							period !== undefined
 								? `Period: ${period}`

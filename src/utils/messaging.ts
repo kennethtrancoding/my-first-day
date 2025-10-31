@@ -2,6 +2,7 @@ import { Message } from "@/utils/people";
 
 export const CONVERSATION_STORE_KEY = "messages:threads";
 export const CONVERSATION_REQUESTS_KEY = "messages:requests";
+
 const THREAD_ID_MOD = 100_000;
 const THREAD_ID_OFFSETS = {
 	mentor: 200_000,
@@ -10,13 +11,13 @@ const THREAD_ID_OFFSETS = {
 
 export interface ConversationMessage {
 	id: number;
-	from: string;
+	from: number; // person.id
 	text: string;
 	timestamp: number;
 }
 
 export interface ConversationThread {
-	participants: [string, string];
+	participants: [number, number]; // [smallerID, largerID]
 	messages: ConversationMessage[];
 	lastMessageUnix?: number;
 }
@@ -26,36 +27,32 @@ export type ConversationRequestDirection = "student_to_mentor" | "mentor_to_stud
 
 export interface ConversationRequest {
 	key: string;
-	initiator: string;
-	recipient: string;
+	initiator: number;
+	recipient: number;
 	direction: ConversationRequestDirection;
 	createdAt: number;
 }
 
 export type ConversationRequestStore = Record<string, ConversationRequest>;
 
-export function normalizeEmail(email: string) {
-	return email.trim().toLowerCase();
-}
-
-export function getConversationKey(a: string, b: string) {
-	const [first, second] = [normalizeEmail(a), normalizeEmail(b)].sort();
+export function getConversationKey(a: number, b: number) {
+	const [first, second] = [a, b].sort((x, y) => x - y);
 	return `${first}__${second}`;
 }
 
-function withThreadParticipants(sender: string, recipient: string): [string, string] {
-	const participants = [sender, recipient].sort();
-	return [participants[0], participants[1]];
+function withThreadParticipants(a: number, b: number): [number, number] {
+	return [a, b].sort((x, y) => x - y) as [number, number];
 }
 
 export function appendConversationMessage(
 	store: ConversationStore,
-	params: { from: string; to: string; text: string }
+	params: { from: number; to: number; text: string }
 ): ConversationStore {
-	const sender = normalizeEmail(params.from);
-	const recipient = normalizeEmail(params.to);
+	const sender = params.from;
+	const recipient = params.to;
 	const key = getConversationKey(sender, recipient);
 	const timestamp = Date.now();
+
 	const nextMessage: ConversationMessage = {
 		id: timestamp,
 		from: sender,
@@ -79,61 +76,57 @@ export function appendConversationMessage(
 
 export function mapMessagesForViewer(
 	thread: ConversationThread | undefined,
-	viewerEmail: string
+	viewerId: number
 ): Message[] {
-	if (!thread) {
-		return [];
-	}
-	const normalizedViewer = normalizeEmail(viewerEmail);
+	if (!thread) return [];
 	return thread.messages.map((message) => ({
 		id: message.id,
-		from: message.from === normalizedViewer ? "out" : "in",
+		from: message.from === viewerId ? "out" : "in",
 		text: message.text,
 	}));
 }
 
 export function getLastActivityTimestamp(thread?: ConversationThread) {
-	if (!thread) {
-		return null;
-	}
+	if (!thread) return null;
 	return thread.lastMessageUnix ?? thread.messages[thread.messages.length - 1]?.timestamp ?? 0;
 }
 
 export function formatLastActivity(timestamp?: number) {
-	if (!timestamp) {
-		return "";
-	}
+	if (!timestamp) return "";
 	return new Date(timestamp).toLocaleString();
 }
 
-function hashEmailToNumber(email: string) {
-	const normalized = normalizeEmail(email);
+function hashIdToNumber(id: number) {
 	let hash = 0;
-	for (let i = 0; i < normalized.length; i += 1) {
-		hash = (hash << 5) - hash + normalized.charCodeAt(i);
+	const str = id.toString();
+	for (let i = 0; i < str.length; i++) {
+		hash = (hash << 5) - hash + str.charCodeAt(i);
 		hash |= 0;
 	}
 	return Math.abs(hash);
 }
 
-export function buildAccountThreadId(email: string, namespace: keyof typeof THREAD_ID_OFFSETS) {
-	const hash = hashEmailToNumber(email);
+export function buildAccountThreadId(id: number, namespace: keyof typeof THREAD_ID_OFFSETS) {
+	const hash = hashIdToNumber(id);
 	const offset = THREAD_ID_OFFSETS[namespace];
 	return offset + (hash % THREAD_ID_MOD);
 }
 
-export function getConversationRequest(store: ConversationRequestStore, a: string, b: string) {
-	if (!a || !b) return undefined;
+export function getConversationRequest(store: ConversationRequestStore, a: number, b: number) {
+	if (a == null || b == null) return undefined;
 	const key = getConversationKey(a, b);
 	return store[key];
 }
 
 export function upsertConversationRequest(
 	store: ConversationRequestStore,
-	params: { initiator: string; recipient: string; direction: ConversationRequestDirection }
+	params: {
+		initiator: number;
+		recipient: number;
+		direction: ConversationRequestDirection;
+	}
 ) {
-	const initiator = normalizeEmail(params.initiator);
-	const recipient = normalizeEmail(params.recipient);
+	const { initiator, recipient } = params;
 	const key = getConversationKey(initiator, recipient);
 	return {
 		...store,
@@ -147,8 +140,8 @@ export function upsertConversationRequest(
 	};
 }
 
-export function removeConversationRequest(store: ConversationRequestStore, a: string, b: string) {
-	if (!a || !b) return store;
+export function removeConversationRequest(store: ConversationRequestStore, a: number, b: number) {
+	if (a == null || b == null) return store;
 	const key = getConversationKey(a, b);
 	if (!store[key]) return store;
 	const next = { ...store };

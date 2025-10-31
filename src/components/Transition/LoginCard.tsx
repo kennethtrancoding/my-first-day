@@ -13,7 +13,7 @@ import { FormEvent, KeyboardEvent, useRef, useState } from "react";
 import { Dot, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import GoogleSignInButton from "@/components/ui/googleSignIn";
-import { authenticate, type StoredAccount } from "@/utils/auth";
+import { authenticate, type Account } from "@/utils/auth";
 import { cn } from "@/lib/utils";
 
 function LoginCard() {
@@ -26,7 +26,7 @@ function LoginCard() {
 	const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 	const navigate = useNavigate();
 
-	function handleSuccessfulLogin(account: StoredAccount) {
+	function handleSuccessfulLogin(account: Account) {
 		setFeedback(null);
 
 		const hasCompletedOnboarding = account.wentThroughOnboarding === true;

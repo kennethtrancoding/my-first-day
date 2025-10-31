@@ -1,17 +1,12 @@
 import * as React from "react";
 import { useStoredState } from "@/hooks/useStoredState";
-import {
-	AccountRole,
-	getCurrentEmail,
-	findAccount,
-	getDisplayNameForAccount,
-} from "@/utils/auth";
+import { AccountRole, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
 import { readFromStorage, writeToStorage } from "@/utils/storage";
 
 export type NotificationCategory = "message" | "request" | "connection" | "system";
 
 export interface AppNotification {
-	id: string;
+	id: number;
 	message: string;
 	createdAt: number;
 	read: boolean;
@@ -23,17 +18,16 @@ export interface AppNotification {
 const MAX_NOTIFICATIONS = 50;
 
 function generateId() {
-	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+	return parseInt(`${Date.now()}${Math.random().toString(36).slice(2, 10)}`);
 }
 
-function getNotificationKey(email: string, role: AccountRole) {
-	const safeEmail = email || "guest";
-	return `user:${safeEmail}:notifications:${role}`;
+function getNotificationKey(accountId: number, role: AccountRole) {
+	const safeId = Number.isFinite(accountId) ? accountId : 0;
+	return `user:${safeId}:notifications:${role}`;
 }
 
 function sanitizeNotification(
-	partial: Pick<AppNotification, "message"> &
-		Partial<Omit<AppNotification, "message">>
+	partial: Pick<AppNotification, "message"> & Partial<Omit<AppNotification, "message">>
 ): AppNotification {
 	return {
 		id: partial.id ?? generateId(),
@@ -49,14 +43,14 @@ function sanitizeNotification(
 export function pushNotificationForRole(
 	role: AccountRole,
 	input: Pick<AppNotification, "message"> &
-		Partial<Omit<AppNotification, "message">> & { email?: string }
+		Partial<Omit<AppNotification, "message">> & {
+			recipientId?: number;
+		}
 ) {
-	const email = input.email ?? getCurrentEmail() ?? "guest";
+	const targetAccountId = input.recipientId ?? getCurrentId() ?? 0;
 	const notification = sanitizeNotification(input);
-	const key = getNotificationKey(email, role);
-	const existing =
-		readFromStorage<AppNotification[]>(key, [] as AppNotification[]) ?? [];
-
+	const key = getNotificationKey(targetAccountId, role);
+	const existing = readFromStorage<AppNotification[]>(key, [] as AppNotification[]) ?? [];
 	const next = [notification, ...existing].slice(0, MAX_NOTIFICATIONS);
 	writeToStorage(key, next);
 	return notification;
@@ -65,53 +59,50 @@ export function pushNotificationForRole(
 export function pushNotificationToOtherRole(
 	role: AccountRole,
 	message: string,
-	options?: Partial<Omit<AppNotification, "message">> & { email?: string }
+	options?: Partial<Omit<AppNotification, "message">> & {
+		recipientId?: number;
+	}
 ) {
 	return pushNotificationForRole(role, { message, ...options });
 }
 
 export function getDisplayNameForCurrentAccount() {
-	const currentEmail = getCurrentEmail();
-	if (!currentEmail) {
-		return null;
-	}
-	const account = findAccount(currentEmail);
-	return getDisplayNameForAccount(account) ?? currentEmail;
+	const currentId = getCurrentId();
+	if (!currentId) return null;
+
+	type Account = {
+		id: number;
+		email: string;
+		profile?: any;
+	};
+	const accounts = readFromStorage<Account[]>("auth:accounts", [] as Account[]);
+	const account = accounts.find((a) => a.id === currentId) ?? null;
+
+	return getDisplayNameForAccount(account as any) ?? String(currentId);
 }
 
 export function useNotifications(role: AccountRole) {
-	const currentEmail = React.useMemo(
-		() => getCurrentEmail() || (role === "mentor" ? "guest-mentor" : "guest"),
-		[role]
-	);
+	const currentId = React.useMemo(() => getCurrentId() ?? 0, []);
 
-	const key = React.useMemo(
-		() => getNotificationKey(currentEmail, role),
-		[currentEmail, role]
-	);
+	const key = React.useMemo(() => getNotificationKey(currentId, role), [currentId, role]);
 
-	const [notifications, setNotifications, clearNotifications] = useStoredState<
-		AppNotification[]
-	>(key, () => []);
+	const [notifications, setNotifications, clearNotifications] = useStoredState<AppNotification[]>(
+		key,
+		() => []
+	);
 
 	const sortedNotifications = React.useMemo(
-		() =>
-			[...notifications].sort(
-				(a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)
-			),
+		() => [...notifications].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 		[notifications]
 	);
 
 	const unreadCount = React.useMemo(
-		() => sortedNotifications.filter((notification) => !notification.read).length,
+		() => sortedNotifications.filter((n) => !n.read).length,
 		[sortedNotifications]
 	);
 
 	const addNotification = React.useCallback(
-		(
-			input: Pick<AppNotification, "message"> &
-				Partial<Omit<AppNotification, "message">>
-		) => {
+		(input: Pick<AppNotification, "message"> & Partial<Omit<AppNotification, "message">>) => {
 			setNotifications((prev) => {
 				const notification = sanitizeNotification(input);
 				const next = [notification, ...prev];
@@ -122,27 +113,19 @@ export function useNotifications(role: AccountRole) {
 	);
 
 	const markAllRead = React.useCallback(() => {
-		setNotifications((prev) =>
-			prev.map((notification) => ({ ...notification, read: true }))
-		);
+		setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 	}, [setNotifications]);
 
 	const markAsRead = React.useCallback(
-		(id: string) => {
-			setNotifications((prev) =>
-				prev.map((notification) =>
-					notification.id === id ? { ...notification, read: true } : notification
-				)
-			);
+		(id: number) => {
+			setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
 		},
 		[setNotifications]
 	);
 
 	const dismissNotification = React.useCallback(
-		(id: string) => {
-			setNotifications((prev) =>
-				prev.filter((notification) => notification.id !== id)
-			);
+		(id: number) => {
+			setNotifications((prev) => prev.filter((n) => n.id !== id));
 		},
 		[setNotifications]
 	);

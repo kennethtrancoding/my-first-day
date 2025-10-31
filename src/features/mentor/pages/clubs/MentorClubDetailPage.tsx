@@ -146,16 +146,18 @@ const MentorClubDetailPage = () => {
 										<div>
 											<p className="font-medium">Club Advisor</p>
 											<p className="text-muted-foreground">{club.advisor}</p>
-											{(club.advisorProfile?.department ||
-												club.advisorProfile?.roomNumber) && (
+											{(club.advisorProfile?.profile.teacherDepartment ||
+												club.advisorProfile?.profile.teacherRoom) && (
 												<p className="text-xs text-muted-foreground">
-													{club.advisorProfile?.department}
-													{club.advisorProfile?.department &&
-													club.advisorProfile?.roomNumber
+													{club.advisorProfile?.profile.teacherDepartment}
+													{club.advisorProfile?.profile
+														.teacherDepartment &&
+													club.advisorProfile?.profile.teacherRoom
 														? " • "
 														: ""}
 													{formatRoomNumber(
-														club.advisorProfile?.roomNumber
+														club.advisorProfile?.profile
+															.teacherDepartment
 													)}
 												</p>
 											)}

@@ -5,16 +5,11 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import MentorDashboardSidebar from "@/features/mentor/components/MentorDashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { students, Message, Student } from "@/utils/people";
+import { students as seedStudents, Message } from "@/utils/people";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
-import {
-	StoredAccount,
-	findAccount,
-	getCurrentEmail,
-	getDisplayNameForAccount,
-} from "@/utils/auth";
+import { Account, findAccount, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
 import {
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
@@ -34,6 +29,22 @@ import {
 	removeConversationRequest,
 } from "@/utils/messaging";
 
+type ThreadItem = {
+	id: number;
+	name: string;
+	email: string;
+	profilePicture: string;
+	bio?: string;
+	grade?: number;
+	assignedToMentor?: boolean;
+
+	conversation: Message[];
+	lastMessage?: string;
+	lastMessageUnix?: number;
+	hasConnected: boolean;
+	requestedCommunication: boolean;
+};
+
 function formatWhen(ts: number | string) {
 	const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
 	const now = new Date();
@@ -46,51 +57,60 @@ function formatWhen(ts: number | string) {
 		: d.toLocaleDateString();
 }
 
-function cloneStudentThreads(): Student[] {
-	return students.map((student) => ({
-		...student,
-		conversation: student.conversation.map((message) => ({ ...message })),
+function cloneStudentThreads(): ThreadItem[] {
+	return seedStudents.map((s) => ({
+		id: s.id,
+		name: (s as any).name ?? s.email ?? `Student ${s.id}`,
+		email: s.email ?? "",
+		profilePicture: (s as any).profilePicture ?? placeholderProfile,
+		bio: (s as any).bio ?? "",
+		grade: Number.parseInt((s as any).grade ?? "", 10) || undefined,
+		assignedToMentor: false,
+		conversation: [],
+		hasConnected: false,
+		requestedCommunication: false,
 	}));
 }
 
 function MentorMessagingLayout() {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => {
-		const raw = getCurrentEmail();
-		return raw ? raw : null;
-	}, []);
+
+	const currentId = React.useMemo(() => getCurrentId() ?? null, []);
 	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) ?? null : null),
-		[currentEmail]
+		() => (currentId ? findAccount(currentId) ?? null : null),
+		[currentId]
 	);
+
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
+
 	const shouldRedirectOnboarding = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail &&
+				currentId &&
 					account &&
 					account.role === "mentor" &&
 					account.wentThroughOnboarding !== true
 			),
-		[account, currentEmail]
-	);
-	const shouldRedirectHome = React.useMemo(
-		() => !currentEmail || !account || account.role !== "mentor",
-		[account, currentEmail]
-	);
-	const isAuthorized = React.useMemo(
-		() =>
-			Boolean(currentEmail && account && account.role === "mentor" && hasCompletedOnboarding),
-		[account, currentEmail, hasCompletedOnboarding]
+		[account, currentId]
 	);
 
-	const storageIdentity = currentEmail ?? "anonymous-mentor";
+	const shouldRedirectHome = React.useMemo(
+		() => !currentId || !account || account.role !== "mentor",
+		[account, currentId]
+	);
+
+	const isAuthorized = React.useMemo(
+		() => Boolean(currentId && account && account.role === "mentor" && hasCompletedOnboarding),
+		[account, currentId, hasCompletedOnboarding]
+	);
+
+	const storageIdentity = currentId ?? 0;
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:mentorMessages`,
 		[storageIdentity]
 	);
 
-	const [localThreads, setLocalThreads] = useStoredState<Student[]>(
+	const [localThreads, setLocalThreads] = useStoredState<ThreadItem[]>(
 		`${storagePrefix}:threads`,
 		() => cloneStudentThreads()
 	);
@@ -98,7 +118,7 @@ function MentorMessagingLayout() {
 		CONVERSATION_STORE_KEY,
 		() => ({} as ConversationStore)
 	);
-	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
+	const [allAccounts] = useStoredState<Account[]>("auth:accounts", () => []);
 	const [selectedId, setSelectedId] = useStoredState<number | null>(
 		`${storagePrefix}:selectedId`,
 		null
@@ -128,84 +148,71 @@ function MentorMessagingLayout() {
 	const { id: routeId } = useParams<{ id?: string }>();
 
 	const studentAccounts = React.useMemo(
-		() =>
-			allAccounts.filter(
-				(account) => account.role === "student" && account.email !== currentEmail
-			),
-		[currentEmail, allAccounts]
+		() => allAccounts.filter((a) => a.role === "student" && a.id !== currentId),
+		[currentId, allAccounts]
 	);
 
-	const dynamicStudentThreads = React.useMemo(() => {
-		if (!currentEmail) {
-			return [] as Student[];
-		}
+	const dynamicStudentThreads = React.useMemo<ThreadItem[]>(() => {
+		if (!currentId) return [];
 
-		return studentAccounts.map((studentAccount) => {
-			const key = getConversationKey(currentEmail, studentAccount.email);
+		return studentAccounts.map((student) => {
+			const key = getConversationKey(currentId, student.id);
 			const thread = conversationStore[key];
-			const conversation = mapMessagesForViewer(thread, currentEmail);
+			const conversation = mapMessagesForViewer(thread, currentId);
 			const lastActivity = getLastActivityTimestamp(thread);
 			const hasConnected = conversation.length > 0;
-			const displayName = getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
-			const parsedGrade = Number.parseInt(studentAccount.profile?.grade ?? "", 10);
-			const matchedMentors = studentAccount.profile?.matchedMentorIds ?? [];
+
+			const displayName = getDisplayNameForAccount(student) ?? student.email;
+			const parsedGrade = Number.parseInt(student.profile?.grade ?? "", 10);
+			const matchedMentors = student.profile?.matchedMentorIds ?? [];
 			const isAssignedToCurrentMentor = Boolean(
 				account && matchedMentors.some((match) => match.mentor.id === (account?.id ?? -1))
 			);
+
 			return {
-				id: buildAccountThreadId(studentAccount.email, "student"),
+				id: student.id,
 				name: displayName,
+				email: student.email,
+				profilePicture: placeholderProfile,
+				bio: student.profile?.bio?.trim() || `${displayName} recently joined My First Day.`,
 				grade: Number.isNaN(parsedGrade) ? undefined : parsedGrade,
 				assignedToMentor: isAssignedToCurrentMentor,
-
+				conversation,
 				hasConnected,
 				requestedCommunication: false,
-				bio:
-					studentAccount.profile?.bio?.trim() ||
-					`${displayName} recently joined My First Day.`,
-				profilePicture: placeholderProfile,
-				email: studentAccount.email,
-				conversation,
-				lastMessage: formatLastActivity(lastActivity),
-				lastMessageUnix: lastActivity,
-			} as Student;
+				lastMessage: formatLastActivity(lastActivity ?? undefined),
+				lastMessageUnix: lastActivity ?? undefined,
+			};
 		});
-	}, [conversationStore, studentAccounts, currentEmail, account]);
+	}, [conversationStore, studentAccounts, currentId, account]);
 
-	const threads = React.useMemo(() => {
-		const merged = new Map<number, Student>();
-		dynamicStudentThreads.forEach((thread) => {
-			merged.set(thread.id, thread);
+	const threads = React.useMemo<ThreadItem[]>(() => {
+		const merged = new Map<number, ThreadItem>();
+		dynamicStudentThreads.forEach((t) => merged.set(t.id, t));
+		localThreads.forEach((t) => {
+			if (!merged.has(t.id)) merged.set(t.id, t);
 		});
-		localThreads.forEach((thread) => {
-			if (!merged.has(thread.id)) {
-				merged.set(thread.id, thread);
-			}
-		});
+
 		const decorated = [...merged.values()].map((thread) => {
-			if (thread.email && currentEmail) {
-				const request = getConversationRequest(
-					conversationRequests,
-					thread.email,
-					currentEmail
-				);
-				if (request?.direction === "student_to_mentor" && !thread.hasConnected) {
+			if (currentId && thread.id) {
+				const req = getConversationRequest(conversationRequests, thread.id, currentId);
+				if (req?.direction === "student_to_mentor" && !thread.hasConnected) {
 					return { ...thread, requestedCommunication: true };
 				}
 			}
 			return thread;
 		});
+
 		return decorated
-			.filter((thread) => thread.hasConnected || thread.requestedCommunication)
+			.filter((t) => t.hasConnected || t.requestedCommunication)
 			.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
-	}, [dynamicStudentThreads, localThreads, conversationRequests, currentEmail]);
+	}, [dynamicStudentThreads, localThreads, conversationRequests, currentId]);
 
 	React.useEffect(() => {
 		if (shouldRedirectOnboarding) {
 			navigate("/onboarding/", { replace: true });
 			return;
 		}
-
 		if (!isAuthorized || shouldRedirectHome) {
 			navigate("/", { replace: true });
 		}
@@ -247,55 +254,49 @@ function MentorMessagingLayout() {
 
 	function sendMessage() {
 		const text = composer.trim();
-		if (!text || selectedId == null || !selected) return;
+		if (!text || selectedId == null || !selected || !currentId) return;
 
 		const nowStr = new Date().toLocaleString();
 		const nowUnix = Date.now();
 
-		if (selected.email && currentEmail) {
-			setConversationStore((prevStore) =>
-				appendConversationMessage(prevStore, {
-					from: currentEmail,
-					to: selected.email!,
-					text,
-				})
+		setConversationStore((prev) =>
+			appendConversationMessage(prev, {
+				from: currentId,
+				to: selected.id,
+				text,
+			})
+		);
+
+		setConversationRequests((prev) => removeConversationRequest(prev, selected.id, currentId));
+
+		setLocalThreads((prev) => {
+			const nextMsg: Message = { id: Date.now(), from: "out", text }; // properly typed
+
+			const updatedThreads = prev.map((thread) =>
+				thread.id !== selectedId
+					? thread
+					: {
+							...thread,
+							hasConnected: true,
+							assignedToMentor: true,
+							conversation: [...thread.conversation, nextMsg], // Message[]
+							lastMessage: nowStr,
+							lastMessageUnix: nowUnix,
+					  }
 			);
-			setConversationRequests((prev) =>
-				removeConversationRequest(prev, selected.email!, currentEmail)
+
+			return [...updatedThreads].sort(
+				(a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0)
 			);
-		} else {
-			const next: Message = { id: Date.now(), from: "out", text };
-			setLocalThreads((prevThreads) => {
-				const updatedThreads = prevThreads.map((thread) => {
-					if (thread.id !== selectedId) {
-						return thread;
-					}
-					const updatedConversation = [...thread.conversation, next];
-					return {
-						...thread,
-						hasConnected: true,
-						assignedToMentor: true,
-						conversation: updatedConversation,
-						lastMessage: nowStr,
-						lastMessageUnix: nowUnix,
-					};
-				});
+		});
 
-				return [...updatedThreads].sort(
-					(a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0)
-				);
-			});
-		}
-
-		const studentRouteId = currentEmail
-			? buildAccountThreadId(currentEmail, "mentor")
-			: selectedId;
-
+		const studentRouteId = buildAccountThreadId(selected.id, "student");
 		pushNotificationToOtherRole("student", `${mentorDisplayName} sent you a new message.`, {
 			type: "message",
 			contextId: studentRouteId,
-			link: `/student/home/messages/${studentRouteId ?? selectedId}`,
-			email: selected.email,
+			link: `/student/home/messages/${studentRouteId}`,
+
+			recipientId: selected.id,
 		});
 
 		setComposer("");
@@ -308,7 +309,7 @@ function MentorMessagingLayout() {
 		}
 	}
 
-	const filtered: Student[] = React.useMemo(() => {
+	const filtered: ThreadItem[] = React.useMemo(() => {
 		const q = search.trim().toLowerCase();
 		if (!q) return threads;
 		return threads.filter(
@@ -329,7 +330,7 @@ function MentorMessagingLayout() {
 		onToggle,
 	}: {
 		title: string;
-		items: Student[];
+		items: ThreadItem[];
 		showAll: boolean;
 		onToggle: () => void;
 	}) {
@@ -355,7 +356,11 @@ function MentorMessagingLayout() {
 								student.id === selectedId ? "bg-muted" : ""
 							} items-center`}
 							onClick={() => openChat(student.id)}>
-							<img className="w-8 h-8 rounded-full" src={student.profilePicture} />
+							<img
+								className="w-8 h-8 rounded-full"
+								src={student.profilePicture}
+								alt=""
+							/>
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center justify-between gap-2">
 									<span className="font-medium truncate">{student.name}</span>

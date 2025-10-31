@@ -1,6 +1,12 @@
 import { useEffect, useId, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { findAccount, registerAccount, setCurrentEmail, type StoredAccount } from "@/utils/auth";
+import {
+	findAccount,
+	findAccountUsingEmail,
+	registerAccount,
+	setCurrentId,
+	type Account,
+} from "@/utils/auth";
 
 interface GoogleCredentialResponse {
 	credential?: string;
@@ -16,7 +22,10 @@ interface GoogleButtonRenderOptions {
 }
 
 interface GoogleAccountsId {
-	initialize(options: { client_id: string; callback: (response: GoogleCredentialResponse) => void }): void;
+	initialize(options: {
+		client_id: string;
+		callback: (response: GoogleCredentialResponse) => void;
+	}): void;
 	renderButton(element: HTMLElement, options?: GoogleButtonRenderOptions): void;
 }
 
@@ -36,7 +45,7 @@ type GoogleSignInType = "login" | "signup";
 
 type GoogleSignInProps = {
 	type: GoogleSignInType;
-	onSuccess?: (account: StoredAccount) => void;
+	onSuccess?: (account: Account) => void;
 	onError?: (message: string) => void;
 };
 
@@ -112,7 +121,7 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 					}
 
 					if (type === "login") {
-						const account = findAccount(email);
+						const account = findAccountUsingEmail(email);
 						if (!account) {
 							onErrorRef.current?.(
 								"No account found for your Google email. Create an account to continue."
@@ -120,7 +129,7 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 							return;
 						}
 
-						setCurrentEmail(account.email);
+						setCurrentId(account.id);
 						onSuccessRef.current?.(account);
 						if (!onSuccessRef.current) {
 							const hasCompletedOnboarding = account.wentThroughOnboarding === true;
@@ -130,7 +139,9 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 								if (account.role === "mentor") {
 									const mentorType = account.profile?.mentorType ?? "student";
 									destination =
-										mentorType === "teacher" ? "/teacher/home/" : "/mentor/home/";
+										mentorType === "teacher"
+											? "/teacher/home/"
+											: "/mentor/home/";
 								} else {
 									destination = "/student/home/";
 								}
@@ -141,9 +152,11 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 					}
 
 					if (type === "signup") {
-						const existing = findAccount(email);
+						const existing = findAccountUsingEmail(email);
 						if (existing) {
-							onErrorRef.current?.("An account with this email already exists. Log in instead.");
+							onErrorRef.current?.(
+								"An account with this email already exists. Log in instead."
+							);
 							return;
 						}
 

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { upcomingEvents } from "@/utils/data";
 import { useTeacherClubs } from "@/hooks/useTeacherCollections";
 import { useStoredState } from "@/hooks/useStoredState";
-import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";
+import { Account, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
 import {
 	CONVERSATION_STORE_KEY,
 	ConversationStore,
@@ -20,17 +20,16 @@ import {
 	CONVERSATION_REQUESTS_KEY,
 	ConversationRequestStore,
 	getConversationRequest,
-	normalizeEmail,
 } from "@/utils/messaging";
 
 const MentorDashboardPage = () => {
 	const navigate = useNavigate();
 	const [clubs] = useTeacherClubs();
-	const currentEmail = React.useMemo(() => {
-		const email = getCurrentEmail();
-		return email ? email : null;
+	const currentId = React.useMemo(() => {
+		const id = getCurrentId();
+		return id ? id : null;
 	}, []);
-	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
+	const [allAccounts] = useStoredState<Account[]>("auth:accounts", () => []);
 	const [conversationStore] = useStoredState<ConversationStore>(
 		CONVERSATION_STORE_KEY,
 		() => ({} as ConversationStore)
@@ -42,7 +41,7 @@ const MentorDashboardPage = () => {
 	const featuredClubs = React.useMemo(() => clubs.filter((club) => club.featured), [clubs]);
 
 	const relevantStudents = React.useMemo(() => {
-		if (!currentEmail) {
+		if (!currentId) {
 			return [] as Array<{
 				id: number;
 				name: string;
@@ -55,13 +54,9 @@ const MentorDashboardPage = () => {
 			}>;
 		}
 
-		const normalizedCurrent = normalizeEmail(currentEmail);
+		const normalizedCurrent = currentId;
 		const students = allAccounts
-			.filter(
-				(account) =>
-					account.role === "student" &&
-					normalizeEmail(account.email) !== normalizedCurrent
-			)
+			.filter((account) => account.role === "student" && account.id !== normalizedCurrent)
 			.map((studentAccount) => {
 				const displayName =
 					getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
@@ -71,20 +66,20 @@ const MentorDashboardPage = () => {
 					studentAccount.profile?.bio?.trim() ||
 					`${displayName} recently joined My First Day.`;
 
-				const key = getConversationKey(currentEmail, studentAccount.email);
+				const key = getConversationKey(currentId, studentAccount.id);
 				const thread = conversationStore[key];
 				const lastActivity = getLastActivityTimestamp(thread);
 				const hasConnected = Boolean(thread?.messages?.length);
 				const request = getConversationRequest(
 					conversationRequests,
-					studentAccount.email,
-					currentEmail
+					studentAccount.id,
+					currentId
 				);
 				const requestedCommunication =
 					Boolean(
 						request &&
 							request.direction === "student_to_mentor" &&
-							request.initiator === normalizeEmail(studentAccount.email)
+							request.initiator === studentAccount.id
 					) && !hasConnected;
 				const requestTimestamp = request?.createdAt ?? 0;
 
@@ -107,7 +102,7 @@ const MentorDashboardPage = () => {
 			.sort((a, b) => b.lastMessageUnix - a.lastMessageUnix);
 
 		return students;
-	}, [allAccounts, conversationRequests, conversationStore, currentEmail]);
+	}, [allAccounts, conversationRequests, conversationStore, currentId]);
 
 	const pendingStudents = React.useMemo(
 		() =>

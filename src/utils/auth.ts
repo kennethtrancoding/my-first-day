@@ -1,5 +1,7 @@
 import { readFromStorage, removeFromStorage, writeToStorage } from "@/utils/storage";
 import { MentorMatch } from "./mentorMatching";
+import { ConversationRequest, ConversationThread } from "./messaging";
+import { mentors, students } from "./people";
 
 export type AccountRole = "student" | "mentor";
 
@@ -18,6 +20,7 @@ export interface AccountProfile {
 	mentorType?: "teacher" | "student";
 	teacherTitle?: string;
 	teacherRoom?: string;
+	teacherDepartment?: string;
 	teacherAvailabilityNotes?: string;
 }
 
@@ -34,20 +37,22 @@ export interface AccountSettings {
 	smsUrgentAlertsEnabled?: boolean;
 }
 
-export interface StoredAccount {
+export interface Account {
 	id: number;
 	email: string;
 	password: string;
 	role: AccountRole;
-	createdAt: string;
+	createdAt: number;
 	profile: AccountProfile;
 	settings: AccountSettings;
 	wentThroughOnboarding?: boolean;
+	outgoingMessageRequests?: ConversationRequest[] | [];
+	messageThreads?: ConversationThread[] | [];
 }
 
 const ACCOUNTS_KEY = "auth:accounts";
-const CURRENT_EMAIL_KEY = "auth:currentEmail";
-const PENDING_EMAIL_KEY = "auth:pendingEmail";
+const CURRENT_ID_KEY = "auth:currentId";
+const PENDING_ID_KEY = "auth:pendingId";
 
 function generateAccountId(): number {
 	const timestampComponent = Date.now().toString(36);
@@ -57,13 +62,13 @@ function generateAccountId(): number {
 	return Number.parseInt(`${timestampComponent}${randomComponent}`, 36);
 }
 
-export function getAccounts(): StoredAccount[] {
-	const accounts = readFromStorage<StoredAccount[]>(ACCOUNTS_KEY, [] as StoredAccount[]);
+export function getAccounts(): Account[] {
+	const accounts = readFromStorage<Account[]>(ACCOUNTS_KEY, [] as Account[]);
 	let needsPersist = false;
 	const normalized = accounts.map((account) => {
 		if (!account.id) {
 			needsPersist = true;
-			return { ...account, id: generateAccountId() } as StoredAccount;
+			return { ...account, id: generateAccountId() } as Account;
 		}
 		return account;
 	});
@@ -73,16 +78,35 @@ export function getAccounts(): StoredAccount[] {
 	return normalized;
 }
 
-export function saveAccounts(accounts: StoredAccount[]) {
+export function saveAccounts(accounts: Account[]) {
 	writeToStorage(ACCOUNTS_KEY, accounts);
 }
 
-export function findAccount(email: string) {
-	const normalized = email.trim().toLowerCase();
-	return getAccounts().find((account) => account.email.toLowerCase() === normalized);
+export function findAccount(id: number, usePrecannedData = false, useRealData = true) {
+	let data: Account;
+	if (useRealData) {
+		data = getAccounts().find((account) => account.id === id);
+	}
+	if (usePrecannedData) {
+		data =
+			students.find((account) => account.id === id) ||
+			mentors.find((account) => account.id === id);
+	}
+	return data;
 }
-
-export function getDisplayNameForAccount(account?: StoredAccount | null) {
+export function findAccountUsingEmail(email: string, usePrecannedData = false, useRealData = true) {
+	let data: Account;
+	if (useRealData) {
+		data = getAccounts().find((account) => account.email === email);
+		return data ?? undefined;
+	}
+	if (usePrecannedData) {
+		data = students.find((account) => account.email === email);
+		return data ?? mentors.find((account) => account.email === email);
+	}
+	return;
+}
+export function getDisplayNameForAccount(account?: Account | null) {
 	if (!account) {
 		return null;
 	}
@@ -101,8 +125,8 @@ export function registerAccount(input: {
 	email: string;
 	password: string;
 	role?: AccountRole;
-	createdAt?: string;
-}): StoredAccount | null {
+	createdAt?: number;
+}): Account | null {
 	const trimmedEmail = input.email.trim().toLowerCase();
 	const accounts = getAccounts();
 	const existingIndex = accounts.findIndex(
@@ -113,66 +137,60 @@ export function registerAccount(input: {
 		return null;
 	}
 
-	const account: StoredAccount = {
+	const account: Account = {
 		id: generateAccountId(),
 		email: trimmedEmail,
 		password: input.password,
 		role: input.role ?? "student",
-		createdAt: input.createdAt ?? new Date().toISOString(),
+		createdAt: input.createdAt ?? Date.now(),
 		profile: {},
 		settings: {},
 		wentThroughOnboarding: false,
+		outgoingMessageRequests: [],
+		messageThreads: [],
 	};
 
 	accounts.push(account);
 	saveAccounts(accounts);
-	setPendingEmail(account.email);
+	setPendingId(account.id);
 	return account;
 }
 
 export function authenticate(email: string, password: string) {
-	const account = findAccount(email);
-	if (!account) {
-		return null;
-	}
+	const account = findAccountUsingEmail(email);
+	if (!account) return null;
+	if (account.password !== password) return null;
 
-	if (account.password !== password) {
-		return null;
-	}
-
-	writeToStorage(CURRENT_EMAIL_KEY, account.email.toLowerCase());
+	writeToStorage(CURRENT_ID_KEY, account.id);
 	return account;
 }
 
 export function logout() {
-	removeFromStorage(CURRENT_EMAIL_KEY);
+	removeFromStorage(CURRENT_ID_KEY);
 }
 
-export function getCurrentEmail() {
-	return readFromStorage<string>(CURRENT_EMAIL_KEY, "");
+export function getCurrentId() {
+	return readFromStorage<number>(CURRENT_ID_KEY, null);
 }
 
-export function setCurrentEmail(email: string) {
-	writeToStorage(CURRENT_EMAIL_KEY, email.trim().toLowerCase());
+export function setCurrentId(id: number) {
+	writeToStorage(CURRENT_ID_KEY, id);
+}
+export function setPendingId(id: number) {
+	writeToStorage(PENDING_ID_KEY, id);
 }
 
-export function setPendingEmail(email: string) {
-	writeToStorage(PENDING_EMAIL_KEY, email.trim().toLowerCase());
+export function getPendingId() {
+	return readFromStorage<number>(PENDING_ID_KEY, null);
 }
 
-export function getPendingEmail() {
-	return readFromStorage<string>(PENDING_EMAIL_KEY, "");
+export function clearPendingId() {
+	removeFromStorage(PENDING_ID_KEY);
 }
 
-export function clearPendingEmail() {
-	removeFromStorage(PENDING_EMAIL_KEY);
-}
-
-export function updateAccount(email: string, updates: Partial<StoredAccount>) {
+export function updateAccount(id: number, updates: Partial<Account>) {
 	const accounts = getAccounts();
-	const idx = accounts.findIndex(
-		(account) => account.email.toLowerCase() === email.toLowerCase()
-	);
+	const idx = accounts.findIndex((account) => account.id === id);
 	if (idx === -1) {
 		return null;
 	}
@@ -195,8 +213,7 @@ export function updateAccount(email: string, updates: Partial<StoredAccount>) {
 	return nextAccount;
 }
 
-export function updateAccountEmail(oldEmail: string, newEmail: string) {
-	const normalizedOld = oldEmail.trim().toLowerCase();
+export function updateAccountEmail(accountId: number, newEmail: string) {
 	const normalizedNew = newEmail.trim().toLowerCase();
 
 	if (!normalizedNew) {
@@ -204,17 +221,14 @@ export function updateAccountEmail(oldEmail: string, newEmail: string) {
 	}
 
 	const accounts = getAccounts();
-	const idx = accounts.findIndex(
-		(account) => account.email.toLowerCase() === normalizedOld
-	);
+	const idx = accounts.findIndex((account) => account.id === accountId);
 
 	if (idx === -1) {
 		return { success: false, error: "We couldn't find that account." };
 	}
 
 	const conflictIndex = accounts.findIndex(
-		(account, accountIdx) =>
-			accountIdx !== idx && account.email.toLowerCase() === normalizedNew
+		(account, accountIdx) => accountIdx !== idx && account.email.toLowerCase() === normalizedNew
 	);
 
 	if (conflictIndex !== -1) {
@@ -227,19 +241,19 @@ export function updateAccountEmail(oldEmail: string, newEmail: string) {
 	};
 	saveAccounts(accounts);
 
-	const activeEmail = getCurrentEmail();
-	if (activeEmail && activeEmail.toLowerCase() === normalizedOld) {
-		setCurrentEmail(normalizedNew);
+	const activeId = getCurrentId();
+	if (activeId) {
+		setCurrentId(activeId);
 	}
 
-	const pending = getPendingEmail();
-	if (pending && pending.toLowerCase() === normalizedOld) {
-		setPendingEmail(normalizedNew);
+	const pending = getPendingId();
+	if (pending) {
+		setPendingId(pending);
 	}
 
 	return { success: true, email: normalizedNew };
 }
 
-export function resetPassword(email: string, newPassword: string) {
-	return updateAccount(email, { password: newPassword });
+export function resetPassword(id: number, newPassword: string) {
+	return updateAccount(id, { password: newPassword });
 }

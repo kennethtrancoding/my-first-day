@@ -1,14 +1,15 @@
-import { mentors, type Person } from "@/utils/people";
+import { mentors } from "@/utils/people";
 import { interestOptions } from "@/utils/data";
+import { Account } from "./auth";
 
 export type MentorMatch = {
-	mentor: Person;
+	mentor: Account;
 	score: number;
 };
 
 export type MentorMatchOptions = {
 	limit?: number;
-	people?: Person[];
+	people?: Account[];
 };
 
 export type MentorMatchProfile = {
@@ -65,8 +66,8 @@ function describeInterest(interestKey: string) {
 	return normalizedInterestLookup.get(interestKey) ?? interestKey;
 }
 
-function buildMentorHaystack(mentor: Person) {
-	return `${mentor.bio} ${mentor.department ?? ""}`.toLowerCase();
+function buildMentorHaystack(mentor: Account) {
+	return `${mentor.profile.bio} ${mentor.profile.teacherDepartment ?? ""}`.toLowerCase();
 }
 
 function parseGrade(grade?: string | number) {
@@ -78,17 +79,17 @@ function parseGrade(grade?: string | number) {
 	return null;
 }
 
-function scoreMentor(mentor: Person, normalizedInterests: string[], gradeNumber: number | null) {
+function scoreMentor(mentor: Account, normalizedInterests: string[], gradeNumber: number | null) {
 	const haystack = buildMentorHaystack(mentor);
 	const reasons: string[] = [];
-	let score = mentor.type === "peer" ? 4 : 3;
+	let score = mentor.profile.mentorType === "student" ? 4 : 3;
 
 	let matchedInterestCount = 0;
 	normalizedInterests.forEach((interest) => {
 		const keywords = getKeywordsForInterest(interest);
 		if (keywords.some((keyword) => haystack.includes(keyword))) {
 			matchedInterestCount += 1;
-			score += mentor.type === "peer" ? 3 : 2;
+			score += mentor.profile.mentorType === "student" ? 3 : 2;
 			reasons.push(`Shares your interest in ${describeInterest(interest)}`);
 		}
 	});
@@ -97,8 +98,12 @@ function scoreMentor(mentor: Person, normalizedInterests: string[], gradeNumber:
 		score -= 1;
 	}
 
-	if (mentor.type === "peer" && gradeNumber != null && mentor.grade != null) {
-		const difference = Math.abs(mentor.grade - gradeNumber);
+	if (
+		mentor.profile.mentorType === "student" &&
+		gradeNumber != null &&
+		mentor.profile.grade != null
+	) {
+		const difference = Math.abs(parseInt(mentor.profile.grade) - gradeNumber || 1000);
 		if (difference === 0) {
 			score += 2;
 			reasons.push("Same grade level");
@@ -106,10 +111,6 @@ function scoreMentor(mentor: Person, normalizedInterests: string[], gradeNumber:
 			score += 1;
 			reasons.push("Close in grade");
 		}
-	}
-
-	if (mentor.hasConnected) {
-		score += 0.25;
 	}
 
 	return {
@@ -141,8 +142,8 @@ export function matchMentorsForStudent(
 		if (b.score !== a.score) {
 			return b.score - a.score;
 		}
-		if (a.mentor.type !== b.mentor.type) {
-			return a.mentor.type === "peer" ? -1 : 1;
+		if (a.mentor.profile.mentorType !== b.mentor.profile.mentorType) {
+			return a.mentor.profile.mentorType === "student" ? -1 : 1;
 		}
 		return a.mentor.id - b.mentor.id;
 	});

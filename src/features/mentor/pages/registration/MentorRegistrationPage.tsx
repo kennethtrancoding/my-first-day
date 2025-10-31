@@ -14,16 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail, updateAccount, type AccountProfile } from "@/utils/auth";
+import { getCurrentId, updateAccount, type AccountProfile } from "@/utils/auth";
 
 type MentorRole = "teacher" | "student";
 
 const MentorRegistrationPage = () => {
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest-mentor", []);
-	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:mentorRegistration`,
-		[currentEmail]
-	);
+	const currentId = React.useMemo(() => getCurrentId() || 0, []);
+	const storagePrefix = React.useMemo(() => `user:${currentId}:mentorRegistration`, [currentId]);
 
 	const [role, setRole] = useStoredState<MentorRole>(`${storagePrefix}:role`, "student");
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -125,8 +122,8 @@ const MentorRegistrationPage = () => {
 			}
 		}
 
-		if (currentEmail !== "guest-mentor") {
-			updateAccount(currentEmail, {
+		if (currentId !== 0) {
+			updateAccount(currentId, {
 				role: "mentor",
 				profile: profileUpdates,
 			});

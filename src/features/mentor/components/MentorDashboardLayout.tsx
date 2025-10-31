@@ -8,7 +8,7 @@ import MentorDashboardSidebar from "./MentorDashboardSidebar";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { findAccount, getCurrentEmail } from "@/utils/auth";
+import { findAccount, getCurrentId } from "@/utils/auth";
 
 interface MentorDashboardLayoutProps {
 	activePage: string;
@@ -17,48 +17,45 @@ interface MentorDashboardLayoutProps {
 
 function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutProps) {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => getCurrentEmail(), []);
-	const account = React.useMemo(
-		() => (currentEmail ? findAccount(currentEmail) : null),
-		[currentEmail]
-	);
+	const currentId = React.useMemo(() => getCurrentId(), []);
+	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
 
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const mentorType = account?.profile?.mentorType ?? "student";
 	const isAuthorized = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail &&
+				currentId &&
 					account &&
 					account.role === "mentor" &&
 					hasCompletedOnboarding &&
 					mentorType !== "teacher"
 			),
-		[account, currentEmail, hasCompletedOnboarding, mentorType]
+		[account, currentId, hasCompletedOnboarding, mentorType]
 	);
 	const shouldRedirectOnboarding = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail &&
+				currentId &&
 					account &&
 					account.role === "mentor" &&
 					account.wentThroughOnboarding !== true
 			),
-		[account, currentEmail]
+		[account, currentId]
 	);
 	const shouldRedirectHome = React.useMemo(
-		() => !currentEmail || !account || account.role !== "mentor",
-		[account, currentEmail]
+		() => !currentId || !account || account.role !== "mentor",
+		[account, currentId]
 	);
 	const shouldRedirectTeacher = React.useMemo(
 		() =>
 			Boolean(
-				currentEmail &&
+				currentId &&
 					account &&
 					account.role === "mentor" &&
 					account.profile?.mentorType === "teacher"
 			),
-		[account, currentEmail]
+		[account, currentId]
 	);
 
 	const [isNotificationOpen, setIsNotificationOpen] = React.useState(false);
@@ -165,7 +162,9 @@ function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutPr
 													: "bg-muted/50 hover:bg-muted/40"
 											}`}>
 											<div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-												<Badge variant="outline" className="px-2 text-[10px]">
+												<Badge
+													variant="outline"
+													className="px-2 text-[10px]">
 													{formatTypeLabel(notif.type)}
 												</Badge>
 												<span>{formatTimestamp(notif.createdAt)}</span>

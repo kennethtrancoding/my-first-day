@@ -4,12 +4,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { mentors, Person } from "@/utils/people";
-import profilePicture from "@/assets/placeholder-profile.svg";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";
+import placeholderProfile from "@/assets/placeholder-profile.svg";
+import { Account, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import {
 	useNotifications,
@@ -30,96 +28,128 @@ import {
 	upsertConversationRequest,
 } from "@/utils/messaging";
 
-function cloneMentorThreads(): Person[] {
-	return mentors.map((mentor) => ({
-		...mentor,
-		conversation: mentor.conversation.map((message) => ({ ...message })),
-	}));
-}
+// Minimal card/thread shape for this page (not the full Account)
+type MentorItem = {
+	id: number; // mentor account id
+	name: string;
+	email: string;
+	type: "teacher" | "student";
+	bio: string;
+	profilePicture: string;
+	conversation: { id: number; from: "in" | "out"; text: string }[];
+	hasConnected: boolean;
+	requestedCommunication: boolean;
+	lastMessage?: string;
+	lastMessageUnix?: number;
+};
 
 export default function StudentMentorDirectoryPage() {
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest", []);
+	const navigate = useNavigate();
+
+	// Current user id (student)
+	const currentId = React.useMemo(() => getCurrentId() ?? 0, []);
 	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:mentorDirectory`,
-		[currentEmail]
+		() => `user:${currentId || 0}:mentorDirectory`,
+		[currentId]
 	);
+
 	const [search, setSearch] = useStoredState<string>(`${storagePrefix}:search`, "");
-	const [localThreads, setLocalThreads] = useStoredState<Person[]>(
-		`user:${currentEmail}:studentMessages:threads`,
-		() => cloneMentorThreads()
+
+	// Per-student "directory" memory of requested flags & last activity
+	const [localThreads, setLocalThreads] = useStoredState<MentorItem[]>(
+		`user:${currentId || 0}:studentMessages:threads`,
+		() => []
 	);
+
 	const [conversationStore] = useStoredState<ConversationStore>(
 		CONVERSATION_STORE_KEY,
 		() => ({} as ConversationStore)
 	);
+
 	const [conversationRequests, setConversationRequests] =
 		useStoredState<ConversationRequestStore>(
 			CONVERSATION_REQUESTS_KEY,
 			() => ({} as ConversationRequestStore)
 		);
-	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
-	const navigate = useNavigate();
+
+	const [allAccounts] = useStoredState<Account[]>("auth:accounts", () => []);
+
 	const { addNotification: addStudentNotification } = useNotifications("student");
 	const studentDisplayName = React.useMemo(
 		() => getDisplayNameForCurrentAccount() ?? "A student",
 		[]
 	);
 
+	// Pull all mentors (excluding current account)
 	const mentorAccounts = React.useMemo(
-		() =>
-			allAccounts.filter(
-				(account) => account.role === "mentor" && account.email !== currentEmail
-			),
-		[allAccounts, currentEmail]
+		() => allAccounts.filter((a) => a.role === "mentor" && a.id !== currentId),
+		[allAccounts, currentId]
 	);
 
-	const dynamicMentors = React.useMemo(() => {
-		if (!currentEmail) {
-			return [] as Person[];
-		}
+	// Build live mentor items from accounts + conversation store
+	const dynamicMentors = React.useMemo<MentorItem[]>(() => {
+		if (!currentId) return [];
 
-		return mentorAccounts.map((mentorAccount) => {
-			const key = getConversationKey(currentEmail, mentorAccount.email);
+		return mentorAccounts.map((mentor) => {
+			const key = getConversationKey(currentId, mentor.id);
 			const thread = conversationStore[key];
-			const conversation = mapMessagesForViewer(thread, currentEmail);
+			const conversation = mapMessagesForViewer(thread, currentId);
 			const lastActivity = getLastActivityTimestamp(thread);
 			const hasConnected = conversation.length > 0;
-			const name = getDisplayNameForAccount(mentorAccount) ?? mentorAccount.email;
+
+			const name = getDisplayNameForAccount(mentor) ?? mentor.email;
+			const type = mentor.profile?.mentorType === "teacher" ? "teacher" : "student";
+			const bio =
+				mentor.profile?.mentorBio?.trim() ||
+				mentor.profile?.bio?.trim() ||
+				`${name} is available to mentor other students.`;
 
 			return {
-				id: buildAccountThreadId(mentorAccount.email, "mentor"),
+				id: mentor.id,
 				name,
-				type: mentorAccount.profile?.mentorType === "teacher" ? "teacher" : "peer",
-				matchedWithUser: false,
-				hasConnected,
-				requestedCommunication: false,
-				bio:
-					mentorAccount.profile?.mentorBio?.trim() ||
-					mentorAccount.profile?.bio?.trim() ||
-					`${name} is available to mentor other students.`,
-				profilePicture: profilePicture,
-				email: mentorAccount.email,
+				email: mentor.email,
+				type,
+				bio,
+				profilePicture: placeholderProfile,
 				conversation,
-				lastMessage: formatLastActivity(lastActivity),
-				lastMessageUnix: lastActivity,
-			} as Person;
+				hasConnected,
+				requestedCommunication: false, // will be decorated below
+				lastMessage: formatLastActivity(lastActivity ?? undefined),
+				lastMessageUnix: lastActivity ?? undefined,
+			};
 		});
-	}, [conversationStore, mentorAccounts, currentEmail]);
+	}, [conversationStore, mentorAccounts, currentId]);
 
-	const availableMentors = React.useMemo(() => {
-		const map = new Map<number, Person>();
-		localThreads.forEach((mentor) => map.set(mentor.id, mentor));
-		dynamicMentors.forEach((mentor) => map.set(mentor.id, mentor));
-		return [...map.values()];
+	// Merge local state (requested flags) with live dynamic mentors
+	const availableMentors = React.useMemo<MentorItem[]>(() => {
+		const byId = new Map<number, MentorItem>();
+		// start from dynamic (authoritative for conversation)
+		dynamicMentors.forEach((m) => byId.set(m.id, m));
+		// overlay local-only flags (e.g., requestedCommunication)
+		localThreads.forEach((local) => {
+			const base = byId.get(local.id);
+			if (!base) {
+				byId.set(local.id, local);
+			} else {
+				byId.set(local.id, {
+					...base,
+					requestedCommunication:
+						local.requestedCommunication || base.requestedCommunication,
+					lastMessage: local.lastMessage ?? base.lastMessage,
+					lastMessageUnix: local.lastMessageUnix ?? base.lastMessageUnix,
+				});
+			}
+		});
+		return [...byId.values()];
 	}, [localThreads, dynamicMentors]);
 
+	// Back link param (last-selected mentor route id)
 	const mentorSlug = Number(useParams()["last-selected"]);
 
-	const filtered = React.useMemo<Person[]>(() => {
+	// Search
+	const filtered = React.useMemo<MentorItem[]>(() => {
 		const q = search.trim().toLowerCase();
-		if (!q) {
-			return availableMentors;
-		}
+		if (!q) return availableMentors;
 		return availableMentors.filter(
 			(p) => p.name.toLowerCase().includes(q) || p.bio.toLowerCase().includes(q)
 		);
@@ -153,22 +183,14 @@ export default function StudentMentorDirectoryPage() {
 				<ScrollArea className="h-[calc(100vh-10rem)] pr-2">
 					<div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 						{filtered.map((m) => {
-							const storedMentor =
-								localThreads.find((thread) => thread.id === m.id) ?? m;
-							const requestFromStore =
-								currentEmail && m.email
-									? getConversationRequest(
-											conversationRequests,
-											currentEmail,
-											m.email
-									  )
-									: undefined;
+							// Check if there is a pending request (ID-based)
+							const req = getConversationRequest(
+								conversationRequests,
+								currentId,
+								m.id
+							);
 							const isRequested =
-								Boolean(requestFromStore) ||
-								Boolean(
-									storedMentor.requestedCommunication &&
-										!storedMentor.hasConnected
-								);
+								Boolean(req) || (m.requestedCommunication && !m.hasConnected);
 							const buttonDisabled = isRequested;
 							const buttonLabel = isRequested ? "Requested" : "Request Chat";
 
@@ -179,7 +201,7 @@ export default function StudentMentorDirectoryPage() {
 									<div>
 										<CardHeader className="flex items-center space-x-3">
 											<img
-												src={m.profilePicture || profilePicture}
+												src={m.profilePicture || placeholderProfile}
 												alt={m.name}
 												className="w-12 h-12 rounded-full object-cover border"
 											/>
@@ -206,44 +228,60 @@ export default function StudentMentorDirectoryPage() {
 											size="sm"
 											variant={isRequested ? "outline" : "default"}
 											onClick={() => {
-												if (buttonDisabled) {
-													return;
-												}
+												if (buttonDisabled || !currentId) return;
 
 												const nowStr = new Date().toLocaleString();
 												const nowUnix = Date.now();
 
-												setLocalThreads((prev) =>
-													prev.map((thread) =>
-														thread.id === m.id
-															? {
-																	...thread,
-																	requestedCommunication: true,
-																	lastMessage: nowStr,
-																	lastMessageUnix: nowUnix,
-															  }
-															: thread
-													)
+												// Mark as requested in local view
+												setLocalThreads((prev) => {
+													const exists = prev.find((t) => t.id === m.id);
+													if (exists) {
+														return prev.map((t) =>
+															t.id === m.id
+																? {
+																		...t,
+																		requestedCommunication:
+																			true,
+																		lastMessage: nowStr,
+																		lastMessageUnix: nowUnix,
+																  }
+																: t
+														);
+													}
+													// seed a minimal record if it wasn't there
+													return [
+														...prev,
+														{
+															...m,
+															requestedCommunication: true,
+															lastMessage: nowStr,
+															lastMessageUnix: nowUnix,
+														},
+													];
+												});
+
+												// Persist a request (ID-based)
+												setConversationRequests((prev) =>
+													upsertConversationRequest(prev, {
+														initiator: currentId,
+														recipient: m.id,
+														direction: "student_to_mentor",
+													})
 												);
 
-												if (currentEmail && m.email) {
-													setConversationRequests((prev) =>
-														upsertConversationRequest(prev, {
-															initiator: currentEmail,
-															recipient: m.email!,
-															direction: "student_to_mentor",
-														})
-													);
-												}
-
+												// Local notification (student)
 												addStudentNotification({
 													message: `Chat request sent to ${m.name}.`,
 													type: "request",
 													contextId: m.id,
 												});
-												const studentRouteId = currentEmail
-													? buildAccountThreadId(currentEmail, "student")
-													: m.id;
+
+												// Notify mentor (target by recipientId)
+												const studentRouteId = buildAccountThreadId(
+													currentId,
+													"student"
+												);
 												pushNotificationToOtherRole(
 													"mentor",
 													`${studentDisplayName} requested to connect with you.`,
@@ -253,10 +291,11 @@ export default function StudentMentorDirectoryPage() {
 														link: `/mentor/home/messages/${
 															studentRouteId ?? m.id
 														}`,
-														email: m.email,
+														recipientId: m.id,
 													}
 												);
 
+												// Jump to messages for that mentor
 												navigate(`/student/home/messages/${m.id}`);
 											}}
 											aria-label={`Start chat with ${m.name}`}

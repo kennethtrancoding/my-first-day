@@ -1,32 +1,19 @@
 import * as React from "react";
 import { useStoredState } from "@/hooks/useStoredState";
-import type { StoredAccount } from "@/utils/auth";
-
-function normalizeEmail(input?: string | null) {
-	if (!input) {
-		return "";
-	}
-	return input.trim().toLowerCase();
-}
+import type { Account } from "@/utils/auth";
 
 export function useCurrentAccount() {
-	const [storedEmail] = useStoredState<string>("auth:currentEmail", () => "");
-	const [accounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
-
-	const normalizedEmail = React.useMemo(() => normalizeEmail(storedEmail), [storedEmail]);
+	const [storedId] = useStoredState<number>("auth:currentId", () => 0);
+	const [accounts] = useStoredState<Account[]>("auth:accounts", () => []);
 
 	const account = React.useMemo(() => {
-		if (!normalizedEmail) {
-			return null;
-		}
-		return (
-			accounts.find((candidate) => candidate.email.toLowerCase() === normalizedEmail) ?? null
-		);
-	}, [accounts, normalizedEmail]);
+		if (!storedId) return null;
+		return accounts.find((candidate) => candidate.id === storedId) ?? null;
+	}, [accounts, storedId]);
 
 	return {
 		account,
-		currentEmail: normalizedEmail || null,
-		rawEmail: storedEmail || null,
+		currentId: storedId || null,
+		rawId: storedId || null,
 	};
 }

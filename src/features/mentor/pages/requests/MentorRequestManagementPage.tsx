@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
-import { StoredAccount, getCurrentEmail, getDisplayNameForAccount } from "@/utils/auth";
+import { Account, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
 import {
 	useNotifications,
 	pushNotificationToOtherRole,
@@ -34,7 +34,6 @@ import {
 	getConversationRequest,
 	removeConversationRequest,
 	buildAccountThreadId,
-	normalizeEmail,
 } from "@/utils/messaging";
 
 type StatusFilter = "all" | "pending" | "active";
@@ -67,11 +66,11 @@ const statusConfig: Record<StudentStatus, (student: MentorStudentRecord) => bool
 
 const MentorRequestManagementPage = () => {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => {
-		const email = getCurrentEmail();
-		return email ? email : null;
+	const currentId = React.useMemo(() => {
+		const id = getCurrentId();
+		return id ? id : null;
 	}, []);
-	const storageIdentity = currentEmail ?? "guest-mentor";
+	const storageIdentity = currentId ?? 0;
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:mentorRequests`,
 		[storageIdentity]
@@ -81,7 +80,7 @@ const MentorRequestManagementPage = () => {
 		`${storagePrefix}:statusFilter`,
 		"pending"
 	);
-	const [allAccounts] = useStoredState<StoredAccount[]>("auth:accounts", () => []);
+	const [allAccounts] = useStoredState<Account[]>("auth:accounts", () => []);
 	const [conversationStore, setConversationStore] = useStoredState<ConversationStore>(
 		CONVERSATION_STORE_KEY,
 		() => ({} as ConversationStore)
@@ -98,31 +97,26 @@ const MentorRequestManagementPage = () => {
 	);
 
 	const relevantStudents = React.useMemo(() => {
-		if (!currentEmail) {
+		if (!currentId) {
 			return [] as MentorStudentRecord[];
 		}
-		const normalizedCurrent = normalizeEmail(currentEmail);
 		return allAccounts
-			.filter(
-				(account) =>
-					account.role === "student" &&
-					normalizeEmail(account.email) !== normalizedCurrent
-			)
+			.filter((account) => account.role === "student" && account.id !== currentId)
 			.map((studentAccount) => {
-				const key = getConversationKey(currentEmail, studentAccount.email);
+				const key = getConversationKey(currentId, studentAccount.id);
 				const thread = conversationStore[key];
 				const lastActivity = getLastActivityTimestamp(thread);
 				const hasConnected = Boolean(thread?.messages?.length);
 				const request = getConversationRequest(
 					conversationRequests,
-					studentAccount.email,
-					currentEmail
+					studentAccount.id,
+					currentId
 				);
 				const requestedCommunication =
 					Boolean(
 						request &&
 							request.direction === "student_to_mentor" &&
-							request.initiator === normalizeEmail(studentAccount.email)
+							request.initiator === studentAccount.id
 					) && !hasConnected;
 				if (!requestedCommunication && !hasConnected) {
 					return null;
@@ -135,7 +129,7 @@ const MentorRequestManagementPage = () => {
 				const status: StudentStatus = requestedCommunication ? "pending" : "active";
 				const requestTimestamp = request?.createdAt ?? 0;
 				return {
-					id: buildAccountThreadId(studentAccount.email, "student"),
+					id: buildAccountThreadId(studentAccount.id, "student"),
 					name,
 					email: studentAccount.email,
 					grade,
@@ -153,7 +147,7 @@ const MentorRequestManagementPage = () => {
 			})
 			.filter((student): student is MentorStudentRecord => Boolean(student))
 			.sort((a, b) => b.lastMessageUnix - a.lastMessageUnix);
-	}, [allAccounts, conversationRequests, conversationStore, currentEmail]);
+	}, [allAccounts, conversationRequests, conversationStore, currentId]);
 
 	const pendingCount = React.useMemo(
 		() => relevantStudents.filter((student) => student.status === "pending").length,
@@ -180,7 +174,7 @@ const MentorRequestManagementPage = () => {
 
 	function handleApprove(studentId: number) {
 		const student = relevantStudents.find((entry) => entry.id === studentId);
-		if (!student || !currentEmail) {
+		if (!student || !currentId) {
 			return;
 		}
 		const studentName = student.name ?? "a student";
@@ -189,25 +183,23 @@ const MentorRequestManagementPage = () => {
 		}, I'm excited to connect with you!`;
 		setConversationStore((prevStore) =>
 			appendConversationMessage(prevStore, {
-				from: currentEmail,
-				to: student.email,
+				from: currentId,
+				to: student.id,
 				text: approvalMessage,
 			})
 		);
-		setConversationRequests((prev) =>
-			removeConversationRequest(prev, student.email, currentEmail)
-		);
+		setConversationRequests((prev) => removeConversationRequest(prev, student.id, currentId));
 		addMentorNotification({
 			message: `Approved request from ${studentName}.`,
 			type: "connection",
 			contextId: studentId,
 		});
-		const mentorRouteId = buildAccountThreadId(currentEmail, "mentor");
+		const mentorRouteId = buildAccountThreadId(currentId, "mentor");
 		pushNotificationToOtherRole("student", `${mentorDisplayName} accepted your request.`, {
 			type: "connection",
 			contextId: mentorRouteId ?? studentId,
 			link: `/student/home/messages/${mentorRouteId ?? studentId}`,
-			email: student.email,
+			id: student.id,
 		});
 	}
 

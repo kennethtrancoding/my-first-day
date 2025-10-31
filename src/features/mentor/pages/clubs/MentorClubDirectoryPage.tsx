@@ -18,19 +18,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentEmail } from "@/utils/auth";
+import { getCurrentId } from "@/utils/auth";
 
 const MentorClubDirectoryPage = () => {
 	const navigate = useNavigate();
-	const currentEmail = React.useMemo(() => getCurrentEmail() || "guest-mentor", []);
-	const storagePrefix = React.useMemo(
-		() => `user:${currentEmail}:mentorClubs`,
-		[currentEmail]
-	);
-	const [searchTerm, setSearchTerm] = useStoredState<string>(
-		`${storagePrefix}:searchTerm`,
-		""
-	);
+	const currentId = React.useMemo(() => getCurrentId() || "guest-mentor", []);
+	const storagePrefix = React.useMemo(() => `user:${currentId}:mentorClubs`, [currentId]);
+	const [searchTerm, setSearchTerm] = useStoredState<string>(`${storagePrefix}:searchTerm`, "");
 	const [selectedCategory, setSelectedCategory] = useStoredState<string>(
 		`${storagePrefix}:selectedCategory`,
 		"All"
@@ -81,7 +75,8 @@ const MentorClubDirectoryPage = () => {
 						<div>
 							<h1 className="text-2xl font-bold">Club Directory</h1>
 							<p className="text-muted-foreground text-sm">
-								Discover clubs your mentees might love and message advisors directly.
+								Discover clubs your mentees might love and message advisors
+								directly.
 							</p>
 						</div>
 						<Button
@@ -192,10 +187,12 @@ const MentorClubDirectoryPage = () => {
 					) : (
 						<div className="flex h-full items-center justify-center rounded-lg border border-dashed bg-muted/40 p-12 text-center">
 							<div>
-								<h2 className="text-lg font-semibold">No clubs match those filters</h2>
+								<h2 className="text-lg font-semibold">
+									No clubs match those filters
+								</h2>
 								<p className="mt-2 text-sm text-muted-foreground">
-									Try adjusting your search or selecting a different category to see
-									more clubs.
+									Try adjusting your search or selecting a different category to
+									see more clubs.
 								</p>
 							</div>
 						</div>

@@ -432,7 +432,7 @@ function TeacherMessagingLayout() {
 							<CardHeader>
 								<h3 className="flex text-lg font-semibold gap-3 items-center">
 									<SidebarTrigger />
-									{selected?.name ?? "Messages"}
+									{showPlaceholder ? "Messages" : selected?.name ?? "Messages"}
 								</h3>
 							</CardHeader>
 							<CardContent className="flex-1 flex flex-col p-0">
@@ -441,7 +441,7 @@ function TeacherMessagingLayout() {
 										{showPlaceholder ? (
 											<div className="flex-1 flex items-center justify-center py-12 text-sm text-muted-foreground text-center">
 												No student conversations yet. Once a student reaches
-												out, their messages will appear here.
+												out, their message request will appear here.
 											</div>
 										) : (
 											selected?.conversation?.map((m) => (

@@ -473,13 +473,13 @@ function MentorMessagingLayout() {
 			<main className="flex-1 p-8 h-full">
 				<div className="flex flex-col md:flex-row gap-6 max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-4rem)]">
 					<section className="flex-1 min-w-0 flex flex-col">
-						<Card className="flex-1 flex flex-col">
-							<CardHeader>
-								<h3 className="flex text-lg font-semibold gap-3 items-center">
-									<SidebarTrigger />
-									{selected?.name ?? "Messages"}
-								</h3>
-							</CardHeader>
+							<Card className="flex-1 flex flex-col">
+								<CardHeader>
+									<h3 className="flex text-lg font-semibold gap-3 items-center">
+										<SidebarTrigger />
+										{showPlaceholder ? "Messages" : selected?.name ?? "Messages"}
+									</h3>
+								</CardHeader>
 
 							<CardContent className="flex-1 flex flex-col p-0">
 								<ScrollArea className="flex-1 p-4">

@@ -6,11 +6,12 @@ import L, { LatLngTuple, LeafletMouseEvent, MarkerOptions } from "leaflet";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import { MAP_LABEL_TYPE_COLORS } from "@/utils/data";
-import { mentors, type Person } from "@/utils/people";
+import { mentors } from "@/utils/people";
 import { useStoredState } from "@/hooks/useStoredState";
 import { buildingCoords, type RoomData } from "@/features/shared/pages/map/buildingCoords";
 import TeacherOverlayPanel from "@/components/ui/teacherMapOverlayPanel";
 import { loadMapRooms, saveMapRooms } from "@/utils/teacherData";
+import { Account } from "@/utils/auth";
 
 const DefaultIcon = L.icon({
 	iconUrl,
@@ -44,7 +45,7 @@ type SelectedRoomDetail = {
 	period?: number;
 	typeColor: string;
 };
-type TeacherRoomType = Record<string, Person>;
+type TeacherRoomType = Record<string, Account>;
 
 function ZoomControlBottomLeft() {
 	const map = useMap();
@@ -65,7 +66,7 @@ function normalize(s: string | undefined) {
 export default function TeacherMapCoordinatesEditor() {
 	const mapRef = useRef<L.Map | null>(null);
 	const polyRefs = useRef<Record<string, L.Polygon>>({});
-	
+
 	const markerRefs = useRef<Record<string, (L.Marker | null)[]>>({});
 
 	const [rooms, setRooms] = useStoredState<RoomData[]>("teacher:mapRooms", () =>
@@ -229,7 +230,7 @@ export default function TeacherMapCoordinatesEditor() {
 			window.alert("Select a room first (click its polygon).");
 			return;
 		}
-		
+
 		delete markerRefs.current[selectedRoom];
 		setRooms((prev) => prev.filter((r) => r.room !== selectedRoom));
 		setSelectedRoom(null);
@@ -238,8 +239,8 @@ export default function TeacherMapCoordinatesEditor() {
 	const peopleByRoom = useMemo<TeacherRoomType>(() => {
 		const result: TeacherRoomType = {};
 		mentors.forEach((person) => {
-			if (person.type === "teacher" && person.roomNumber) {
-				result[normalize(person.roomNumber)] = person;
+			if (person.profile.mentorType === "teacher" && person.profile.teacherRoom) {
+				result[normalize(person.profile.teacherRoom)] = person;
 			}
 		});
 		return result;
@@ -271,7 +272,7 @@ export default function TeacherMapCoordinatesEditor() {
 				<ZoomControlBottomLeft />
 
 				<TileLayer
-					url="https:
+					url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 					attribution=""
 					maxZoom={19}
 					maxNativeZoom={19}
@@ -305,10 +306,10 @@ export default function TeacherMapCoordinatesEditor() {
                       <div style="font-family: sans-serif; line-height: 1.4;">
                         <h3 style="margin: 0 0 4px 0;">Room ${b.room}</h3>
                         ${b.type ? `Type: ${b.type}<br/>` : ""}
-                        ${teacher ? `Teacher: ${teacher.name}<br/>` : ""}
+                        ${teacher ? `Teacher: ${teacher.profile.displayName}<br/>` : ""}
                         ${
-							teacher && teacher.department
-								? `Subject: ${teacher.department}<br/>`
+							teacher && teacher.profile.teacherDepartment
+								? `Subject: ${teacher.profile.teacherDepartment}<br/>`
 								: ""
 						}
                       </div>`;
@@ -429,7 +430,6 @@ export default function TeacherMapCoordinatesEditor() {
 									pane="markerPane"
 									zIndexOffset={1000}
 									icon={vertexIcon}
-									
 									ref={(el) => {
 										markerRefs.current[b.room] =
 											markerRefs.current[b.room] || [];

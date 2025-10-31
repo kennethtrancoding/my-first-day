@@ -73,12 +73,17 @@ export function getDisplayNameForCurrentAccount() {
 	type Account = {
 		id: number;
 		email: string;
-		profile?: any;
+		profile?: Record<string, unknown>;
 	};
 	const accounts = readFromStorage<Account[]>("auth:accounts", [] as Account[]);
 	const account = accounts.find((a) => a.id === currentId) ?? null;
 
-	return getDisplayNameForAccount(account as any) ?? String(currentId);
+	if (!account) {
+		return String(currentId);
+	}
+
+	const name = getDisplayNameForAccount({ email: account.email, profile: account.profile ?? {} });
+	return name || account.email || String(currentId);
 }
 
 export function useNotifications(role: AccountRole) {

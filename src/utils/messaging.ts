@@ -11,13 +11,13 @@ const THREAD_ID_OFFSETS = {
 
 export interface ConversationMessage {
 	id: number;
-	from: number; // person.id
+	from: number;
 	text: string;
 	timestamp: number;
 }
 
 export interface ConversationThread {
-	participants: [number, number]; // [smallerID, largerID]
+	participants: [number, number];
 	messages: ConversationMessage[];
 	lastMessageUnix?: number;
 }

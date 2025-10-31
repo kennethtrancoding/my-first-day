@@ -21,7 +21,7 @@ import {
 	setCurrentId,
 	clearPendingId,
 	updateAccount,
-	findAccount,
+	findAccounts,
 } from "@/utils/auth";
 import { matchMentorsForStudent } from "@/utils/mentorMatching";
 import { loadMapRooms } from "@/utils/teacherData";
@@ -40,7 +40,7 @@ function Onboarding() {
 		if (idContext === 0) {
 			return null;
 		}
-		return findAccount(idContext) ?? null;
+		return findAccounts({ ids: [idContext] })[0] ?? null;
 	}, [idContext]);
 
 	const [currentStep, setCurrentStep] = React.useState<number>(2);

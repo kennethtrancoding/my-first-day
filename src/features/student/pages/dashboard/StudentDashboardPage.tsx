@@ -33,15 +33,17 @@ function MatchedMentorList({ matches }: { matches: MentorMatch[] }) {
 					/>
 					<div className="flex flex-col">
 						<div className="flex flex-row gap-2 items-baseline">
-							<p className="font-medium text-lg">{mentor.profile.displayName}</p>
-							{mentor.profile.grade && (
+							<p className="font-medium text-lg">
+								{mentor.profile?.displayName ?? mentor.email ?? `Mentor ${mentor.id}`}
+							</p>
+							{mentor.profile?.grade && (
 								<p className="text-sm text-muted-foreground">
 									{mentor.profile.grade}th Grade
 								</p>
 							)}
 						</div>
 						<p className="text-sm text-muted-foreground line-clamp-1">
-							{mentor.profile.bio}
+							{mentor.profile?.bio ?? "This mentor is excited to connect!"}
 						</p>
 					</div>
 				</div>

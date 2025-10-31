@@ -16,11 +16,9 @@ import { useTeacherElectives } from "@/hooks/useTeacherCollections";
 import type { ElectiveCategory, ElectiveCourse } from "@/data/electives";
 import { useNavigate } from "react-router-dom";
 
-// Keep the textarea styling consistent with the rest of the dashboard
 export const textareaClassName =
 	"flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[120px]";
 
-// Local helper to mirror createId from your manager page
 function createId(prefix: string) {
 	if (typeof window !== "undefined" && (window as any).crypto?.randomUUID) {
 		return (window as any).crypto.randomUUID();
@@ -28,7 +26,6 @@ function createId(prefix: string) {
 	return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// Draft shape for the creator form
 type ElectiveCategoryDraft = {
 	title: string;
 	tagline: string;
@@ -36,7 +33,7 @@ type ElectiveCategoryDraft = {
 	courseName: string;
 	courseGrades: string;
 	courseDescription: string;
-	courseFocusAreas: string; // comma separated
+	courseFocusAreas: string;
 };
 
 function createElectiveDraft(): ElectiveCategoryDraft {
@@ -58,7 +55,6 @@ export default function TeacherNewElectiveCreator() {
 	const [draft, setDraft] = React.useState<ElectiveCategoryDraft>(() => createElectiveDraft());
 
 	function handleCreateCategory() {
-		// Build initial course if toggled on and a name is provided (otherwise skip)
 		const maybeCourse: ElectiveCourse[] =
 			draft.includeCourse && draft.courseName.trim()
 				? [
@@ -106,7 +102,6 @@ export default function TeacherNewElectiveCreator() {
 					</CardHeader>
 
 					<CardContent className="space-y-6">
-						{/* Category basics */}
 						<div className="grid gap-4 md:grid-cols-2">
 							<div className="space-y-2">
 								<Label>Category title</Label>
@@ -130,7 +125,6 @@ export default function TeacherNewElectiveCreator() {
 							</div>
 						</div>
 
-						{/* First course toggle */}
 						<div className="rounded-lg border p-4 space-y-3">
 							<div className="flex items-center justify-between">
 								<div className="space-y-1">

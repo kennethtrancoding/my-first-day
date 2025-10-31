@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { upcomingEvents } from "@/utils/data";
 import { useTeacherClubs } from "@/hooks/useTeacherCollections";
 import { useStoredState } from "@/hooks/useStoredState";
-import { Account, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
+import { Account, getCurrentId } from "@/utils/auth";
 import {
 	CONVERSATION_STORE_KEY,
 	ConversationStore,
@@ -58,8 +58,7 @@ const MentorDashboardPage = () => {
 		const students = allAccounts
 			.filter((account) => account.role === "student" && account.id !== normalizedCurrent)
 			.map((studentAccount) => {
-				const displayName =
-					getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
+				const displayName = studentAccount.profile?.displayName ?? studentAccount.email;
 				const gradeValue = Number.parseInt(studentAccount.profile?.grade ?? "", 10);
 				const grade = Number.isNaN(gradeValue) ? undefined : gradeValue;
 				const bio =

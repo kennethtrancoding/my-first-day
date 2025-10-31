@@ -18,7 +18,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
 import TeacherDashboardLayout from "@/features/teacher/components/TeacherDashboardLayout";
-import { findAccount, getCurrentId, logout, updateAccount, updateAccountEmail } from "@/utils/auth";
+import {
+	findAccounts,
+	getCurrentId,
+	logout,
+	updateAccount,
+	updateAccountEmail,
+} from "@/utils/auth";
 import { useNavigate } from "react-router-dom";
 
 const textareaClassName =
@@ -63,7 +69,6 @@ function SaveButton({
 function TeacherSettingsPage() {
 	const navigate = useNavigate();
 
-	// currentId is a NUMBER (account id)
 	const [currentId] = React.useState<number | null>(() => getCurrentId() ?? null);
 	const storageIdentity = currentId ?? "anonymous-teacher";
 	const storagePrefix = React.useMemo(
@@ -71,8 +76,10 @@ function TeacherSettingsPage() {
 		[storageIdentity]
 	);
 
-	// Look up account by id
-	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
+	const account = React.useMemo(
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] : null),
+		[currentId]
+	);
 
 	const fallbackName = React.useMemo(() => {
 		if (!account) return "Teacher";
@@ -148,17 +155,14 @@ function TeacherSettingsPage() {
 		() => ""
 	);
 
-	// Email (string) UI state is based on account.email
 	const [emailInput, setEmailInput] = React.useState<string>(account?.email ?? "");
 	const [emailError, setEmailError] = React.useState<string | null>(null);
 
 	React.useEffect(() => {
-		// Keep display name non-empty
 		if (!displayName.trim()) setDisplayName(fallbackName);
 	}, [displayName, fallbackName, setDisplayName]);
 
 	React.useEffect(() => {
-		// Update email input when account changes
 		setEmailInput(account?.email ?? "");
 	}, [account?.email]);
 
@@ -249,7 +253,7 @@ function TeacherSettingsPage() {
 		setEmailError(null);
 		setFieldStatus((prev) => ({ ...prev, email: "saving" }));
 
-		const result = updateAccountEmail(currentId, trimmed); // expects (id, newEmail)
+		const result = updateAccountEmail(currentId, trimmed);
 		if (!result.success || !result.email) {
 			setEmailError(result.error ?? "That email is already in use.");
 			setFieldStatus((prev) => ({ ...prev, email: "idle" }));
@@ -268,7 +272,7 @@ function TeacherSettingsPage() {
 					settings: {
 						mapAlertsEnabled: mapAlerts,
 						smsUrgentAlertsEnabled: urgentSms,
-						// keep resourceReminders if you persist it:
+
 						resourceRemindersEnabled: resourceReminders,
 						emailNotificationsEnabled: emailAnnouncements,
 					},
@@ -279,7 +283,7 @@ function TeacherSettingsPage() {
 
 	function handlePasswordReset() {
 		if (!currentId) return;
-		// Pass ID to the reset route
+
 		navigate("/reset-password/", { state: { id: currentId } });
 	}
 

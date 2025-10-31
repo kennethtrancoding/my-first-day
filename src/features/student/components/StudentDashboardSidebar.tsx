@@ -24,10 +24,13 @@ function StudentDashboardSidebar({ activePage }: StudentDashboardSidebarProps) {
 	const navigate = useNavigate();
 	const { account } = useCurrentAccount();
 
-	const displayName = useMemo(
-		() => getDisplayNameForAccount(account) || account?.email || "Guest",
-		[account]
-	);
+	const displayName = useMemo(() => {
+		if (!account) {
+			return "Guest";
+		}
+		const name = getDisplayNameForAccount(account);
+		return name || account.email || "Guest";
+	}, [account]);
 
 	return (
 		<Sidebar>

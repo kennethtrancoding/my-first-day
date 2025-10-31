@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoredState } from "@/hooks/useStoredState";
-import { Account, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
+import { Account, getCurrentId } from "@/utils/auth";
 import {
 	useNotifications,
 	pushNotificationToOtherRole,
@@ -123,7 +123,7 @@ const MentorRequestManagementPage = () => {
 				}
 				const gradeValue = Number.parseInt(studentAccount.profile?.grade ?? "", 10);
 				const grade = Number.isNaN(gradeValue) ? undefined : gradeValue;
-				const name = getDisplayNameForAccount(studentAccount) ?? studentAccount.email;
+				const name = studentAccount.profile?.displayName ?? studentAccount.email;
 				const bio =
 					studentAccount.profile?.bio?.trim() || `${name} recently joined My First Day.`;
 				const status: StudentStatus = requestedCommunication ? "pending" : "active";

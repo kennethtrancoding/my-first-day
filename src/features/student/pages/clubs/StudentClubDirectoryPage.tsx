@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, MapPin, Search, Users } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Search, Users, User } from "lucide-react";
 
 import StudentDashboardLayout from "@/features/student/components/StudentDashboardLayout";
 import { useTeacherClubs } from "@/hooks/useTeacherCollections";
@@ -153,6 +153,12 @@ const StudentClubDirectoryPage = () => {
 										<MapPin className="h-4 w-4" />
 										<span>{club.location}</span>
 									</div>
+									<div className="flex items-center gap-2">
+										<User className="h-4 w-4" />
+										<span className="truncate">
+											Advisor: {club.advisor ?? "To be announced"}
+										</span>
+									</div>
 									{club.tags?.length ? (
 										<div className="flex flex-wrap gap-2 pt-2">
 											{club.tags.map((tag) => (
@@ -180,7 +186,7 @@ const StudentClubDirectoryPage = () => {
 										size="sm"
 										onClick={(event) => {
 											event.stopPropagation();
-											const advisorId = club.advisorProfile?.id;
+											const advisorId = club.advisorProfile.id;
 											const target =
 												advisorId != null
 													? `/student/home/messages/${advisorId}/`

@@ -49,6 +49,56 @@ export interface Account {
 	outgoingMessageRequests?: ConversationRequest[] | [];
 	messageThreads?: ConversationThread[] | [];
 }
+export function getDisplayNameForAccount(
+	account?: Pick<Account, "email" | "profile"> | null
+): string {
+	if (!account) {
+		return "";
+	}
+
+	const profile = account.profile ?? {};
+	const first = profile.firstName?.trim();
+	const last = profile.lastName?.trim();
+	if (first && last) {
+		return `${first} ${last}`;
+	}
+	if (first) {
+		return first;
+	}
+
+	const displayName = profile.displayName?.trim();
+	if (displayName) {
+		return displayName;
+	}
+
+	return account.email ?? "";
+}
+export interface AccountFilter {
+	useRealData?: boolean;
+	usePrecannedData?: boolean;
+
+	q?: string;
+	role?: AccountRole | AccountRole[];
+	ids?: number[];
+	email?: string | string[];
+	createdAfter?: number;
+	createdBefore?: number;
+
+	mentorType?: "teacher" | "student";
+	hasMatchedMentors?: boolean;
+
+	availability?: boolean;
+	digestEnabled?: boolean;
+	emailNotificationsEnabled?: boolean;
+	pushNotificationsEnabled?: boolean;
+
+	wentThroughOnboarding?: boolean;
+
+	sortBy?: "createdAt" | "email" | "displayName";
+	sortDir?: "asc" | "desc";
+	offset?: number;
+	limit?: number;
+}
 
 const ACCOUNTS_KEY = "auth:accounts";
 const CURRENT_ID_KEY = "auth:currentId";
@@ -81,46 +131,6 @@ export function getAccounts(): Account[] {
 export function saveAccounts(accounts: Account[]) {
 	writeToStorage(ACCOUNTS_KEY, accounts);
 }
-
-export function findAccount(id: number, usePrecannedData = false, useRealData = true) {
-	let data: Account;
-	if (useRealData) {
-		data = getAccounts().find((account) => account.id === id);
-	}
-	if (usePrecannedData) {
-		data =
-			students.find((account) => account.id === id) ||
-			mentors.find((account) => account.id === id);
-	}
-	return data;
-}
-export function findAccountUsingEmail(email: string, usePrecannedData = false, useRealData = true) {
-	let data: Account;
-	if (useRealData) {
-		data = getAccounts().find((account) => account.email === email);
-		return data ?? undefined;
-	}
-	if (usePrecannedData) {
-		data = students.find((account) => account.email === email);
-		return data ?? mentors.find((account) => account.email === email);
-	}
-	return;
-}
-export function getDisplayNameForAccount(account?: Account | null) {
-	if (!account) {
-		return null;
-	}
-
-	const profile = account.profile ?? {};
-	const first = profile.firstName?.trim();
-	const last = profile.lastName?.trim();
-	if (first && last) {
-		return `${first} ${last}`;
-	}
-
-	return first ?? profile.displayName?.trim() ?? account.email;
-}
-
 export function registerAccount(input: {
 	email: string;
 	password: string;
@@ -157,7 +167,9 @@ export function registerAccount(input: {
 }
 
 export function authenticate(email: string, password: string) {
-	const account = findAccountUsingEmail(email);
+	const account = findAccounts({
+		email,
+	})[0];
 	if (!account) return null;
 	if (account.password !== password) return null;
 
@@ -256,4 +268,117 @@ export function updateAccountEmail(accountId: number, newEmail: string) {
 
 export function resetPassword(id: number, newPassword: string) {
 	return updateAccount(id, { password: newPassword });
+}
+
+export function findAccounts(filter: AccountFilter = {}): Account[] {
+	const fromReal = filter.useRealData !== false ? getAccounts() : [];
+	const fromPrecanned = filter.usePrecannedData ? [...students, ...mentors] : [];
+
+	const byId = new Map<number, Account>();
+	for (const acc of [...fromPrecanned, ...fromReal]) {
+		if (!byId.has(acc.id)) byId.set(acc.id, acc);
+	}
+	let list = Array.from(byId.values());
+
+	const toLower = (s?: string | null) => (s ?? "").toLowerCase();
+	const roles: AccountRole[] = Array.isArray(filter.role)
+		? filter.role
+		: filter.role
+		? [filter.role]
+		: [];
+
+	const emailSet =
+		typeof filter.email === "string"
+			? new Set([toLower(filter.email)])
+			: Array.isArray(filter.email)
+			? new Set(filter.email.map(toLower))
+			: null;
+
+	const idSet = Array.isArray(filter.ids) ? new Set(filter.ids) : null;
+
+	list = list.filter((acc) => {
+		if (idSet && !idSet.has(acc.id)) return false;
+
+		if (emailSet && !emailSet.has(toLower(acc.email))) return false;
+
+		if (roles.length && !roles.includes(acc.role)) return false;
+
+		if (typeof filter.createdAfter === "number" && acc.createdAt < filter.createdAfter)
+			return false;
+		if (typeof filter.createdBefore === "number" && acc.createdAt > filter.createdBefore)
+			return false;
+
+		if (
+			typeof filter.wentThroughOnboarding === "boolean" &&
+			(acc.wentThroughOnboarding ?? false) !== filter.wentThroughOnboarding
+		)
+			return false;
+
+		const p = acc.profile ?? {};
+		if (filter.mentorType && p.mentorType !== filter.mentorType) return false;
+		if (typeof filter.hasMatchedMentors === "boolean") {
+			const has = !!(p.matchedMentorIds && p.matchedMentorIds.length > 0);
+			if (has !== filter.hasMatchedMentors) return false;
+		}
+
+		const s = acc.settings ?? {};
+		if (
+			typeof filter.availability === "boolean" &&
+			(s.availability ?? false) !== filter.availability
+		)
+			return false;
+		if (
+			typeof filter.digestEnabled === "boolean" &&
+			(s.digestEnabled ?? false) !== filter.digestEnabled
+		)
+			return false;
+		if (
+			typeof filter.emailNotificationsEnabled === "boolean" &&
+			(s.emailNotificationsEnabled ?? false) !== filter.emailNotificationsEnabled
+		)
+			return false;
+		if (
+			typeof filter.pushNotificationsEnabled === "boolean" &&
+			(s.pushNotificationsEnabled ?? false) !== filter.pushNotificationsEnabled
+		)
+			return false;
+
+		if (filter.q) {
+			const needle = toLower(filter.q);
+			const displayName = acc.profile?.displayName ?? "";
+			const profileFirst = toLower(acc.profile?.firstName);
+			const profileLast = toLower(acc.profile?.lastName);
+			const haystack = [
+				toLower(acc.email),
+				toLower(displayName),
+				profileFirst,
+				profileLast,
+			].join(" ");
+			if (!haystack.includes(needle)) return false;
+		}
+
+		return true;
+	});
+
+	if (filter.sortBy) {
+		const dir = filter.sortDir === "desc" ? -1 : 1;
+		const cmpStr = (a?: string | null, b?: string | null) =>
+			toLower(a).localeCompare(toLower(b));
+		list.sort((a, b) => {
+			switch (filter.sortBy) {
+				case "createdAt":
+					return (a.createdAt - b.createdAt) * dir;
+				case "email":
+					return cmpStr(a.email, b.email) * dir;
+				case "displayName":
+					return cmpStr(a.profile?.displayName, b.profile?.displayName) * dir;
+				default:
+					return 0;
+			}
+		});
+	}
+
+	const start = Math.max(0, filter.offset ?? 0);
+	const end = typeof filter.limit === "number" ? start + Math.max(0, filter.limit) : undefined;
+	return list.slice(start, end);
 }

@@ -8,7 +8,7 @@ import MentorDashboardSidebar from "./MentorDashboardSidebar";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { findAccount, getCurrentId } from "@/utils/auth";
+import { findAccounts, getCurrentId } from "@/utils/auth";
 
 interface MentorDashboardLayoutProps {
 	activePage: string;
@@ -18,7 +18,10 @@ interface MentorDashboardLayoutProps {
 function MentorDashboardLayout({ activePage, children }: MentorDashboardLayoutProps) {
 	const navigate = useNavigate();
 	const currentId = React.useMemo(() => getCurrentId(), []);
-	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
+	const account = React.useMemo(
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] : null),
+		[currentId]
+	);
 
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const mentorType = account?.profile?.mentorType ?? "student";

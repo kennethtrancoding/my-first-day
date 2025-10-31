@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import GoogleSignInButton from "@/components/ui/googleSignIn";
 import { Link, useNavigate } from "react-router-dom";
 import { FormEvent, KeyboardEvent, useRef, useState } from "react";
-import { registerAccount, findAccountUsingEmail } from "@/utils/auth";
+import { findAccounts, registerAccount } from "@/utils/auth";
 import { Loader2 } from "lucide-react";
 
 function SignupCard() {
@@ -32,8 +32,8 @@ function SignupCard() {
 			return;
 		}
 
-		const existing = findAccountUsingEmail(trimmedEmail);
-		if (existing) {
+		const existing = findAccounts({ email: trimmedEmail });
+		if (existing.length > 0) {
 			setError("An account with this email already exists. Log in instead.");
 			return;
 		}

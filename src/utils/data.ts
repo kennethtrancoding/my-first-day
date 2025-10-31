@@ -1,8 +1,8 @@
 import { Map as MapIcon, FileText, Sparkles, Users, CalendarDays, Settings } from "lucide-react";
 import type { NavigateFunction } from "react-router-dom";
-import { mentors } from "@/utils/people";
+import { mentors, students } from "@/utils/people";
 import { buildingCoords, type RoomData } from "@/features/shared/pages/map/buildingCoords";
-import { Account } from "./auth";
+import { Account, getDisplayNameForAccount } from "./auth";
 
 export const upcomingEvents = [
 	{
@@ -60,10 +60,8 @@ type ClubSeed = Omit<
 	contactEmail?: string;
 };
 
-const teacherLookup = new Map<number, Account>(
-	mentors
-		.filter((person) => person.profile.mentorType === "teacher")
-		.map((person) => [person.id, person])
+const advisorLookup = new Map<number, Account>(
+	[...mentors, ...students].map((person) => [person.id, person])
 );
 
 const roomLookup = new Map<string, RoomData>(buildingCoords.map((room) => [room.room, room]));
@@ -90,7 +88,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Design, build, and program competition-ready robots while developing teamwork and problem-solving skills. Members collaborate in build teams, learn to use CAD and coding tools, and prepare for VEX Robotics challenges throughout the year.",
 		locationRoom: "32",
-		advisorId: 11,
+		advisorId: 101,
 		highlights: [
 			"Hands-on robot building sessions with experienced mentors",
 			"Weekly programming labs focused on sensors and automation",
@@ -125,7 +123,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Shape school culture by planning events, supporting student initiatives, and collaborating with administrators. Council members lead committees, manage campus-wide projects, and ensure every student has a voice.",
 		locationRoom: "Counseling",
-		advisorId: 12,
+		advisorId: 102,
 		highlights: [
 			"Coordinate school-wide rallies, dances, and spirit weeks",
 			"Develop leadership skills through workshops and mentorship",
@@ -159,7 +157,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Explore storytelling through the lens with guided photo walks, editing labs, and collaborative projects. Members build portfolios, learn shooting techniques, and contribute to school publications.",
 		locationRoom: "3",
-		advisorId: 13,
+		advisorId: 103,
 		highlights: [
 			"Weekly themed photo challenges to spark creativity",
 			"Lightroom and Photoshop editing workshops in the media lab",
@@ -196,7 +194,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Master persuasive speaking, research techniques, and effective teamwork in competitive debate formats. Members learn to analyze current events, craft compelling arguments, and compete in league tournaments.",
 		locationRoom: "15B",
-		advisorId: 14,
+		advisorId: 104,
 		highlights: [
 			"Weekly practice rounds with peer feedback and coaching",
 			"Workshops on research, argument structure, and rebuttals",
@@ -231,7 +229,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Grow as a musician through rehearsals focused on improvisation, ensemble balance, and jazz theory. The band performs at concerts, festivals, and community events throughout the year.",
 		locationRoom: "Multi-Purpose Room",
-		advisorId: 15,
+		advisorId: 105,
 		highlights: [
 			"Collaborate with guest musicians for masterclasses and clinics",
 			"Perform at the district jazz showcase and winter concerts",
@@ -265,7 +263,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Lead campus sustainability initiatives, from waste reduction campaigns to native plant gardens. Members research environmental issues, design outreach materials, and present proposals to school leadership.",
 		locationRoom: "West Quad",
-		advisorId: 16,
+		advisorId: 106,
 		highlights: [
 			"Maintain the campus pollinator garden and compost hub",
 			"Run awareness campaigns during Earth Week and beyond",
@@ -299,7 +297,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Prototype real-world solutions with code. Members learn front-end design, logic, and user testing while shipping projects ranging from school apps to creative games.",
 		locationRoom: "18",
-		advisorId: 17,
+		advisorId: 107,
 		highlights: [
 			"Weekly build nights covering JavaScript, Python, and no-code tools",
 			"Pitch project ideas at quarterly demo days",
@@ -333,7 +331,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Act, direct, design sets, or manage backstage operations for school productions. Members rotate through workshops covering acting, script analysis, stagecraft, and technical design.",
 		locationRoom: "Gym",
-		advisorId: 18,
+		advisorId: 108,
 		highlights: [
 			"Seasonal productions with student-led crews",
 			"Workshops on improv, stage combat, and vocal projection",
@@ -367,7 +365,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Iterate on hands-on builds while learning fabrication fundamentals. Members tackle themed design challenges, prototype with digital fabrication tools, and showcase creations at the spring expo.",
 		locationRoom: "31",
-		advisorId: 19,
+		advisorId: 109,
 		highlights: [
 			"Access to 3D printers, laser cutters, and sewing machines",
 			"Monthly design challenges with prizes for creativity",
@@ -401,7 +399,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Share traditions, plan cultural showcases, and lead dialogues that build empathy. Members host food fairs, panel discussions, and peer education workshops focused on global awareness.",
 		locationRoom: "15",
-		advisorId: 20,
+		advisorId: 110,
 		highlights: [
 			"Organize the annual Culture Night with student performances",
 			"Lead advisory lessons centered on inclusion and identity",
@@ -435,7 +433,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Build confidence in science, technology, and engineering through mentorship, hands-on labs, and field trips. Members collaborate on passion projects and hear from women working in STEM careers.",
 		locationRoom: "16",
-		advisorId: 21,
+		advisorId: 111,
 		highlights: [
 			"Monthly mentorship circles with high school and industry partners",
 			"Hands-on labs exploring physics, coding, and biomedical science",
@@ -469,7 +467,7 @@ const clubDirectorySeeds: ClubSeed[] = [
 		longDescription:
 			"Discover nearby parks through hikes, orienteering, and stewardship projects. Members learn outdoor safety, plan weekend excursions, and document their adventures for the school community.",
 		locationRoom: "North Quad",
-		advisorId: 22,
+		advisorId: 112,
 		highlights: [
 			"Monthly sunrise hikes with trail photography challenges",
 			"Workshops on map reading, packing essentials, and Leave No Trace",
@@ -493,15 +491,16 @@ const clubDirectorySeeds: ClubSeed[] = [
 ];
 
 export const clubDirectory: Club[] = clubDirectorySeeds.map((club) => {
-	const advisor = teacherLookup.get(club.advisorId);
+	const advisor = advisorLookup.get(club.advisorId);
 	const locationData = roomLookup.get(club.locationRoom);
 	const baseLocation = formatClubLocation(locationData);
 	const contactEmail = advisor?.email ?? club.contactEmail ?? "";
 	const location = baseLocation || "No location found";
+	const advisorName = advisor ? getDisplayNameForAccount(advisor) : "No advisor found";
 
 	return {
 		...club,
-		advisor: advisor?.profile.displayName ?? "No advisor found",
+		advisor: advisorName || advisor?.email || "No advisor found",
 		contactEmail: contactEmail || "info@wcusd.org",
 		advisorProfile: advisor,
 		location: location || "No location found",

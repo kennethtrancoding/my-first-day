@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/comp
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { findAccount, getCurrentId } from "@/utils/auth";
+import { findAccounts, getCurrentId } from "@/utils/auth";
 import TeacherDashboardSidebar from "./TeacherDashboardSidebar";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -18,7 +18,10 @@ interface TeacherDashboardLayoutProps {
 function TeacherDashboardLayout({ activePage, children }: TeacherDashboardLayoutProps) {
 	const navigate = useNavigate();
 	const currentId = React.useMemo(() => getCurrentId(), []);
-	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
+	const account = React.useMemo(
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] : null),
+		[currentId]
+	);
 	const mentorType = account?.profile?.mentorType ?? "student";
 	const hasCompletedOnboarding = account?.wentThroughOnboarding === true;
 	const isAuthorized = React.useMemo(

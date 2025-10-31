@@ -10,8 +10,7 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import OverlayPanel from "@/components/ui/studentMentorMapOverlayPanel";
 import { MAP_LABEL_TYPE_COLORS } from "@/utils/data";
 import { mentors } from "@/utils/people";
-import { Account, findAccount, getCurrentId } from "@/utils/auth";
-import { useStoredState } from "@/hooks/useStoredState";
+import { Account, findAccounts, getCurrentId } from "@/utils/auth";
 const DefaultIcon = L.icon({
 	iconUrl,
 	shadowUrl: iconShadow,
@@ -52,10 +51,13 @@ function normalize(s: string | undefined) {
 export default function CampusMap() {
 	const schedule = useMemo(() => {
 		const currentId = getCurrentId();
-		const account = findAccount(currentId);
-		const schedule = account.profile.schedule || [];
-		return { account, schedule, currentId };
-	}, []).schedule;
+		if (typeof currentId !== "number") {
+			return [] as string[];
+		}
+		const account = findAccounts({ ids: [currentId] })[0];
+		const scheduleData = account?.profile?.schedule;
+		return Array.isArray(scheduleData) ? [...scheduleData] : [];
+	}, []);
 	const normalizedSchedule = useMemo(
 		() =>
 			Array.isArray(schedule)
@@ -75,7 +77,7 @@ export default function CampusMap() {
 	const peopleByRoom = useMemo<TeacherRoomType>(() => {
 		const result: TeacherRoomType = {};
 		mentors.forEach((person) => {
-			if (person.profile.mentorType === "teacher" && person.profile.teacherRoom) {
+			if (person.profile?.mentorType === "teacher" && person.profile?.teacherRoom) {
 				result[normalize(person.profile.teacherRoom)] = person;
 			}
 		});
@@ -144,7 +146,7 @@ export default function CampusMap() {
 				const person = peopleByRoom[normalizedRoom];
 				const period = getPeriodForRoom(trimmedRoom) ?? index;
 				const typeLabel = person
-					? person.profile.mentorType === "teacher"
+					? person.profile?.mentorType === "teacher"
 						? "Teacher"
 						: "Peer Mentor"
 					: found?.type ?? "Unknown";
@@ -152,8 +154,8 @@ export default function CampusMap() {
 					period,
 					room: trimmedRoom,
 					type: typeLabel,
-					department: person?.profile.teacherDepartment,
-					teacher: person?.profile.displayName,
+					department: person?.profile?.teacherDepartment,
+					teacher: person?.profile?.displayName,
 					color: getTypeColor(found?.type),
 				};
 			})
@@ -218,16 +220,14 @@ export default function CampusMap() {
 									const period = idx >= 0 ? idx : undefined;
 
 									const teacher = peopleByRoom[normalize(b.room)];
+									const teacherName = teacher?.profile?.displayName ?? "";
+									const teacherDepartment = teacher?.profile?.teacherDepartment ?? "";
 									const popupContent = `
                     <div style="font-family: sans-serif; line-height: 1.4;">
                       <h3 style="margin: 0 0 4px 0;">Room ${b.room}</h3>
                       ${b.type ? `Type: ${b.type}<br/>` : ""}
-                      ${teacher ? `Teacher: ${teacher.profile.displayName}<br/>` : ""}
-                      ${
-							teacher && teacher.profile.teacherDepartment
-								? `Subject: ${teacher.profile.teacherDepartment}<br/>`
-								: ""
-						}
+                      ${teacherName ? `Teacher: ${teacherName}<br/>` : ""}
+                      ${teacherDepartment ? `Subject: ${teacherDepartment}<br/>` : ""}
                       ${
 							period !== undefined
 								? `Period: ${period}`

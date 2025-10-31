@@ -10,7 +10,7 @@ import placeholderProfile from "@/assets/placeholder-profile.svg";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 
-import { Account, getDisplayNameForAccount, findAccount } from "@/utils/auth";
+import { Account, findAccounts } from "@/utils/auth";
 import { useCurrentAccount } from "@/hooks/useCurrentAccount";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -49,9 +49,9 @@ function formatWhen(ts: number | string) {
 }
 
 function getDisplayNameById(id: number) {
-	const acc = findAccount(id, true);
-	if (acc && acc.profile) {
-		return acc.profile?.displayName || acc.email || `Person ${id}`;
+	const account = findAccounts({ ids: [id], usePrecannedData: true })[0];
+	if (account) {
+		return account.profile?.displayName || account.email || `Person ${id}`;
 	}
 	return `Person ${id}`;
 }
@@ -150,7 +150,6 @@ export default function StudentMessagingLayout() {
 	const decorateFromAccount = React.useCallback(
 		(acc: Account): AccountWithMeta => {
 			const displayName =
-				getDisplayNameForAccount(acc) ||
 				acc.profile?.displayName ||
 				acc.email ||
 				getDisplayNameById(acc.id) ||
@@ -280,22 +279,71 @@ export default function StudentMessagingLayout() {
 			.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
 	}, [mentorsUnified, matchedMentorIds]);
 
-	React.useEffect(() => {
-		if (routeId) {
-			const parsed = Number(routeId);
-			if (!Number.isNaN(parsed)) {
-				setSelectedId(parsed);
-				return;
+	const matchedThreads = React.useMemo(
+		() => threads.filter((thread) => matchedMentorIds.has(thread.id)),
+		[threads, matchedMentorIds]
+	);
+	const pendingThreads = React.useMemo(
+		() => threads.filter((thread) => thread.requestedCommunication && !thread.hasConnected),
+		[threads]
+	);
+	const connectedThreads = React.useMemo(
+		() => threads.filter((thread) => thread.hasConnected),
+		[threads]
+	);
+	const defaultConversationId = React.useMemo(() => {
+		const priorityLists: AccountWithMeta[][] = [
+			matchedThreads,
+			pendingThreads,
+			connectedThreads,
+			threads,
+		];
+		for (const group of priorityLists) {
+			const candidate = group.find((item) => item?.id != null);
+			if (candidate) {
+				return candidate.id;
 			}
 		}
-		setSelectedId((prev) => (prev == null && threads.length ? threads[0].id : prev));
-	}, [routeId, threads, setSelectedId]);
+		return null;
+	}, [matchedThreads, pendingThreads, connectedThreads, threads]);
 
 	React.useEffect(() => {
-		if (selectedId != null && !threads.some((p) => p.id === selectedId)) {
-			setSelectedId(threads[0]?.id ?? null);
+		if (!routeId) return;
+		const parsed = Number(routeId);
+		if (!Number.isNaN(parsed)) {
+			setSelectedId(parsed);
 		}
-	}, [threads, selectedId, setSelectedId]);
+	}, [routeId, setSelectedId]);
+
+	React.useEffect(() => {
+		if (routeId) return;
+		if (defaultConversationId == null) return;
+		if (selectedId === defaultConversationId) return;
+		setSelectedId(defaultConversationId);
+		navigate(`/student/home/messages/${defaultConversationId}`, { replace: true });
+	}, [routeId, defaultConversationId, navigate, selectedId, setSelectedId]);
+
+	React.useEffect(() => {
+		const hasSelection =
+			selectedId != null && threads.some((thread) => thread.id === selectedId);
+		if (hasSelection) {
+			return;
+		}
+		const fallbackId = defaultConversationId;
+		if (fallbackId == null) {
+			if (selectedId != null) {
+				setSelectedId(null);
+			}
+			return;
+		}
+		if (selectedId !== fallbackId) {
+			setSelectedId(fallbackId);
+		}
+		const parsedRoute = routeId ? Number(routeId) : NaN;
+		if (!routeId || Number.isNaN(parsedRoute) || parsedRoute !== fallbackId) {
+			navigate(`/student/home/messages/${fallbackId}`, { replace: true });
+		}
+	}, [threads, selectedId, defaultConversationId, navigate, routeId, setSelectedId]);
 
 	React.useEffect(() => {
 		if (shouldRedirectOnboarding) {
@@ -403,7 +451,6 @@ export default function StudentMessagingLayout() {
 
 	const requested = filtered.filter((p) => p.requestedCommunication && !p.hasConnected);
 
-	// FIX: Return AccountWithMeta[] of matched mentors, not raw match objects
 	const matched: AccountWithMeta[] = React.useMemo(
 		() => filtered.filter((p) => matchedMentorIds.has(p.id)),
 		[filtered, matchedMentorIds]
@@ -411,10 +458,7 @@ export default function StudentMessagingLayout() {
 
 	const connected = filtered.filter((p) => p.hasConnected && !p.requestedCommunication);
 
-	const outstandingRequestCount = React.useMemo(
-		() => threads.filter((p) => p.requestedCommunication && !p.hasConnected).length,
-		[threads]
-	);
+	const outstandingRequestCount = React.useMemo(() => pendingThreads.length, [pendingThreads]);
 
 	const canRequestSelected = Boolean(
 		selected && !selected.hasConnected && !selected.requestedCommunication
@@ -597,8 +641,6 @@ export default function StudentMessagingLayout() {
 						</Card>
 					</section>
 
-					{/* People/right rail */}
-					{/* FIX: Tailwind class typo (max-h-[...]) */}
 					<aside className="w-full md:w-[360px] max-h-[calc(100vh-4rem)]">
 						<Card className="flex-1 flex flex-col">
 							<CardHeader>

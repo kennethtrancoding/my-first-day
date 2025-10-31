@@ -23,9 +23,8 @@ import {
 	getCurrentId,
 	updateAccount,
 	logout,
-	findAccount,
 	updateAccountEmail,
-	findAccountUsingEmail,
+	findAccounts,
 } from "@/utils/auth";
 import { interestOptions } from "@/utils/data";
 import { useNavigate } from "react-router-dom";
@@ -70,8 +69,15 @@ function SaveButton({
 }
 
 const MentorSettingsPage = () => {
-	const [currentId, setCurrentId] = React.useState(() => getCurrentId());
-	const [currentEmail, setCurrentEmail] = React.useState(() => findAccount(currentId).email);
+	const [currentId, setCurrentId] = React.useState<number | null>(() => getCurrentId());
+	const [currentEmail, setCurrentEmail] = React.useState<string>(() => {
+		const id = getCurrentId();
+		if (typeof id !== "number") {
+			return "";
+		}
+		const account = findAccounts({ ids: [id] })[0];
+		return account?.email ?? "";
+	});
 	const storageIdentity = currentId || 0;
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:mentorSettings`,
@@ -79,7 +85,12 @@ const MentorSettingsPage = () => {
 	);
 	const navigate = useNavigate();
 
-	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
+	const account = React.useMemo(() => {
+		if (typeof currentId !== "number") {
+			return null;
+		}
+		return findAccounts({ ids: [currentId] })[0] ?? null;
+	}, [currentId]);
 
 	const fallbackName = React.useMemo(() => {
 		if (!currentId) {
@@ -103,7 +114,8 @@ const MentorSettingsPage = () => {
 			}
 		}
 
-		const localPart = findAccount(currentId).email.split("@")[0] ?? "";
+		const emailSource = account?.email ?? currentEmail;
+		const localPart = emailSource ? emailSource.split("@")[0] ?? "" : "";
 		const cleaned = localPart.replace(/[._-]+/g, " ").trim();
 		if (cleaned) {
 			return cleaned
@@ -114,7 +126,7 @@ const MentorSettingsPage = () => {
 		}
 
 		return "Mentor";
-	}, [account, currentId]);
+	}, [account, currentEmail, currentId]);
 
 	React.useEffect(() => {
 		if (!currentId || !account || account.role !== "mentor") {
@@ -180,8 +192,18 @@ const MentorSettingsPage = () => {
 	const [emailError, setEmailError] = React.useState<string | null>(null);
 
 	React.useEffect(() => {
-		setEmailInput(currentEmail || "mentor@example.org");
+		if (typeof currentId !== "number") {
+			setCurrentEmail("");
+			return;
+		}
+		const nextAccount = findAccounts({ ids: [currentId] })[0];
+		const nextEmail = nextAccount?.email ?? "";
+		setCurrentEmail(nextEmail);
 	}, [currentId]);
+
+	React.useEffect(() => {
+		setEmailInput(currentEmail || "mentor@example.org");
+	}, [currentEmail]);
 
 	const [emailNotifications, setEmailNotifications] = useStoredState<boolean>(
 		`${storagePrefix}:emailNotifications`,
@@ -322,7 +344,13 @@ const MentorSettingsPage = () => {
 			return;
 		}
 
-		setCurrentId(findAccountUsingEmail(result.email).id);
+		const updatedAccount = findAccounts({ email: result.email })[0] ?? null;
+		if (updatedAccount) {
+			setCurrentId(updatedAccount.id);
+			setCurrentEmail(updatedAccount.email);
+		} else {
+			setCurrentEmail(result.email);
+		}
 		setEmailInput(result.email);
 		setEmailStatus("saved");
 		setTimeout(() => setEmailStatus("idle"), 1500);

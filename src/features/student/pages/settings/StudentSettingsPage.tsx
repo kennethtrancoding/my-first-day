@@ -29,9 +29,8 @@ import {
 	getCurrentId,
 	updateAccount,
 	logout,
-	findAccount,
 	updateAccountEmail,
-	findAccountUsingEmail,
+	findAccounts,
 } from "@/utils/auth";
 import { matchMentorsForStudent } from "@/utils/mentorMatching";
 import { writeToStorage } from "@/utils/storage";
@@ -82,15 +81,25 @@ function SaveButton({
 }
 
 function StudentSettingsPage() {
-	const [currentId, setCurrentId] = React.useState(() => getCurrentId());
-	const currentEmail = findAccount(currentId)?.email ?? "";
+	const [currentId, setCurrentId] = React.useState<number | null>(() => getCurrentId());
+	const currentEmail = React.useMemo(() => {
+		if (typeof currentId !== "number") {
+			return "";
+		}
+		return findAccounts({ ids: [currentId] })[0]?.email ?? "";
+	}, [currentId]);
 	const storageIdentity = currentId || 0;
 	const storagePrefix = React.useMemo(
 		() => `user:${storageIdentity}:studentSettings`,
 		[storageIdentity]
 	);
 
-	const account = React.useMemo(() => (currentId ? findAccount(currentId) : null), [currentId]);
+	const account = React.useMemo(() => {
+		if (typeof currentId !== "number") {
+			return null;
+		}
+		return findAccounts({ ids: [currentId] })[0] ?? null;
+	}, [currentId]);
 
 	const fallbackName = React.useMemo(() => {
 		if (!currentId) {
@@ -353,7 +362,10 @@ function StudentSettingsPage() {
 			return;
 		}
 
-		setCurrentId(findAccountUsingEmail(result.email).id);
+		const updatedAccount = findAccounts({ email: result.email })[0] ?? null;
+		if (updatedAccount) {
+			setCurrentId(updatedAccount.id);
+		}
 		setEmailInput(result.email);
 		setSaveStatus("email", "saved");
 		setTimeout(() => setSaveStatus("email", "idle"), 1500);

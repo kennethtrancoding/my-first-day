@@ -11,7 +11,7 @@ import {
 import placeholderProfile from "@/assets/placeholder-profile.svg";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { findAccount, getCurrentId, logout } from "@/utils/auth";
+import { findAccounts, getCurrentId, logout } from "@/utils/auth";
 
 interface TeacherDashboardSidebarProps {
 	activePage: string;
@@ -28,7 +28,10 @@ const sidebarMenuItems = [
 function TeacherDashboardSidebar({ activePage }: TeacherDashboardSidebarProps) {
 	const navigate = useNavigate();
 	const currentId = useMemo(() => getCurrentId(), []);
-	const account = useMemo(() => (currentId ? findAccount(currentId) ?? null : null), [currentId]);
+	const account = useMemo(
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] ?? null : null),
+		[currentId]
+	);
 
 	const displayName = useMemo(() => {
 		const profile = account?.profile ?? {};

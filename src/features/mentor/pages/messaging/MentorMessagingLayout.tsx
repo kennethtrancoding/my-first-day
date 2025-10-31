@@ -9,7 +9,7 @@ import { students as seedStudents, Message } from "@/utils/people";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
-import { Account, findAccount, getCurrentId, getDisplayNameForAccount } from "@/utils/auth";
+import { Account, findAccounts, getCurrentId } from "@/utils/auth";
 import {
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
@@ -77,7 +77,7 @@ function MentorMessagingLayout() {
 
 	const currentId = React.useMemo(() => getCurrentId() ?? null, []);
 	const account = React.useMemo(
-		() => (currentId ? findAccount(currentId) ?? null : null),
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] ?? null : null),
 		[currentId]
 	);
 
@@ -162,7 +162,7 @@ function MentorMessagingLayout() {
 			const lastActivity = getLastActivityTimestamp(thread);
 			const hasConnected = conversation.length > 0;
 
-			const displayName = getDisplayNameForAccount(student) ?? student.email;
+			const displayName = student.profile?.displayName ?? student.email;
 			const parsedGrade = Number.parseInt(student.profile?.grade ?? "", 10);
 			const matchedMentors = student.profile?.matchedMentorIds ?? [];
 			const isAssignedToCurrentMentor = Boolean(
@@ -207,6 +207,50 @@ function MentorMessagingLayout() {
 			.filter((t) => t.hasConnected || t.requestedCommunication)
 			.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
 	}, [dynamicStudentThreads, localThreads, conversationRequests, currentId]);
+	const hasSidebarThreads = threads.length > 0;
+
+	const assignedStudentThreads = React.useMemo(
+		() => threads.filter((t) => t.assignedToMentor),
+		[threads]
+	);
+	const connectedStudentThreads = React.useMemo(
+		() => threads.filter((t) => t.hasConnected),
+		[threads]
+	);
+	const pendingStudentThreads = React.useMemo(
+		() => threads.filter((t) => t.requestedCommunication && !t.hasConnected),
+		[threads]
+	);
+	const defaultThreadId = React.useMemo(() => {
+		const priorityLists: ThreadItem[][] = [
+			assignedStudentThreads,
+			connectedStudentThreads,
+			pendingStudentThreads,
+			threads,
+		];
+		for (const group of priorityLists) {
+			const candidate = group.find((item) => item?.id != null);
+			if (candidate) {
+				return candidate.id;
+			}
+		}
+		return threads.length === 0 ? 0 : null;
+	}, [assignedStudentThreads, connectedStudentThreads, pendingStudentThreads, threads]);
+	const placeholderThread = React.useMemo<ThreadItem>(
+		() => ({
+			id: 0,
+			name: "Messages",
+			email: "",
+			profilePicture: placeholderProfile,
+			conversation: [],
+			lastMessage: undefined,
+			lastMessageUnix: undefined,
+			hasConnected: false,
+			requestedCommunication: false,
+			assignedToMentor: false,
+		}),
+		[]
+	);
 
 	React.useEffect(() => {
 		if (shouldRedirectOnboarding) {
@@ -219,26 +263,57 @@ function MentorMessagingLayout() {
 	}, [isAuthorized, navigate, shouldRedirectHome, shouldRedirectOnboarding]);
 
 	React.useEffect(() => {
-		if (routeId) {
-			const parsed = Number(routeId);
-			if (!Number.isNaN(parsed)) {
-				setSelectedId(parsed);
-				return;
-			}
+		if (!routeId) return;
+		const parsed = Number(routeId);
+		if (!Number.isNaN(parsed)) {
+			setSelectedId(parsed);
 		}
-		setSelectedId((prev) => (prev == null && threads.length ? threads[0].id : prev));
-	}, [routeId, threads, setSelectedId]);
+	}, [routeId, setSelectedId]);
 
 	React.useEffect(() => {
-		if (selectedId != null && !threads.some((p) => p.id === selectedId)) {
-			setSelectedId(threads[0]?.id ?? null);
-		}
-	}, [threads, selectedId, setSelectedId]);
+		if (routeId) return;
+		if (defaultThreadId == null) return;
+		if (selectedId === defaultThreadId) return;
+		setSelectedId(defaultThreadId);
+		navigate(`/mentor/home/messages/${defaultThreadId}`, { replace: true });
+	}, [routeId, defaultThreadId, navigate, selectedId, setSelectedId]);
 
-	const selected = React.useMemo(
-		() => (selectedId == null ? undefined : threads.find((p) => p.id === selectedId)),
-		[threads, selectedId]
-	);
+	React.useEffect(() => {
+		const hasSelection =
+			selectedId != null &&
+			(threads.some((thread) => thread.id === selectedId) ||
+				(!hasSidebarThreads && selectedId === 0));
+		if (hasSelection) {
+			return;
+		}
+		const fallbackId = defaultThreadId;
+		if (fallbackId == null) {
+			if (selectedId != null) {
+				setSelectedId(null);
+			}
+			return;
+		}
+		if (selectedId !== fallbackId) {
+			setSelectedId(fallbackId);
+		}
+		const parsedRoute = routeId ? Number(routeId) : NaN;
+		if (!routeId || Number.isNaN(parsedRoute) || parsedRoute !== fallbackId) {
+			navigate(`/mentor/home/messages/${fallbackId}`, { replace: true });
+		}
+	}, [threads, selectedId, defaultThreadId, navigate, routeId, setSelectedId, hasSidebarThreads]);
+
+	const selected = React.useMemo(() => {
+		if (!hasSidebarThreads) {
+			return placeholderThread;
+		}
+		return selectedId == null ? undefined : threads.find((p) => p.id === selectedId);
+	}, [threads, selectedId, placeholderThread, hasSidebarThreads]);
+	const showPlaceholder = !hasSidebarThreads;
+	React.useEffect(() => {
+		if (showPlaceholder && composer) {
+			setComposer("");
+		}
+	}, [showPlaceholder, composer, setComposer]);
 
 	const endRef = React.useRef<HTMLDivElement | null>(null);
 	React.useEffect(() => {
@@ -254,7 +329,7 @@ function MentorMessagingLayout() {
 
 	function sendMessage() {
 		const text = composer.trim();
-		if (!text || selectedId == null || !selected || !currentId) return;
+		if (!text || selectedId == null || !selected || showPlaceholder || !currentId) return;
 
 		const nowStr = new Date().toLocaleString();
 		const nowUnix = Date.now();
@@ -270,7 +345,7 @@ function MentorMessagingLayout() {
 		setConversationRequests((prev) => removeConversationRequest(prev, selected.id, currentId));
 
 		setLocalThreads((prev) => {
-			const nextMsg: Message = { id: Date.now(), from: "out", text }; // properly typed
+			const nextMsg: Message = { id: Date.now(), from: "out", text };
 
 			const updatedThreads = prev.map((thread) =>
 				thread.id !== selectedId
@@ -279,7 +354,7 @@ function MentorMessagingLayout() {
 							...thread,
 							hasConnected: true,
 							assignedToMentor: true,
-							conversation: [...thread.conversation, nextMsg], // Message[]
+							conversation: [...thread.conversation, nextMsg],
 							lastMessage: nowStr,
 							lastMessageUnix: nowUnix,
 					  }
@@ -409,17 +484,24 @@ function MentorMessagingLayout() {
 							<CardContent className="flex-1 flex flex-col p-0">
 								<ScrollArea className="flex-1 p-4">
 									<div className="space-y-3 flex flex-col">
-										{selected?.conversation?.map((message) => (
-											<div
-												key={message.id}
-												className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
-													message.from === "in"
-														? "bg-muted text-foreground self-start"
-														: "bg-primary text-primary-foreground self-end ml-auto"
-												}`}>
-												{message.text}
+										{showPlaceholder ? (
+											<div className="flex-1 flex items-center justify-center py-12 text-sm text-muted-foreground text-center">
+												No student conversations yet. Once a student reaches
+												out, their messages will appear here.
 											</div>
-										))}
+										) : (
+											selected?.conversation?.map((message) => (
+												<div
+													key={message.id}
+													className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
+														message.from === "in"
+															? "bg-muted text-foreground self-start"
+															: "bg-primary text-primary-foreground self-end ml-auto"
+													}`}>
+													{message.text}
+												</div>
+											))
+										)}
 										<div ref={endRef} />
 									</div>
 								</ScrollArea>
@@ -430,15 +512,20 @@ function MentorMessagingLayout() {
 											rows={1}
 											className="flex-1 rounded-md border border-input p-2 resize-none"
 											placeholder={
-												selected?.name
+												showPlaceholder
+													? "No students available to message yet"
+													: selected?.name
 													? `Message ${selected.name}`
 													: "Select a student to start a conversation"
 											}
+											disabled={showPlaceholder}
 											value={composer}
 											onChange={(e) => setComposer(e.target.value)}
 											onKeyDown={handleKeyDown}
 										/>
-										<Button onClick={sendMessage} disabled={!composer.trim()}>
+										<Button
+											onClick={sendMessage}
+											disabled={showPlaceholder || !composer.trim()}>
 											Send
 										</Button>
 									</div>

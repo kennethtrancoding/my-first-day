@@ -23,9 +23,6 @@ const defaultSettings = (): AccountSettings => ({
 	smsUrgentAlertsEnabled: false,
 });
 
-// ---------------------------
-// Students (role: "student")
-// ---------------------------
 export const students: Account[] = [
 	{
 		id: 1,
@@ -350,11 +347,6 @@ export const students: Account[] = [
 	},
 ];
 
-// ---------------------------------------
-// Mentors (teachers + peer mentors)
-// Teachers: role "teacher", mentorType "teacher"
-// Peers:   role "student", mentorType "student"
-// ---------------------------------------
 export const mentors: Account[] = [
 	{
 		id: 101,

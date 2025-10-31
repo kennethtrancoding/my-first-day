@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet";
-import { findAccount, getCurrentId } from "@/utils/auth";
-import { Home, Menu } from "lucide-react";
+import { findAccounts, getCurrentId } from "@/utils/auth";
+import { Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const navLinks = [{ label: "Home", to: "/" }];
 
 function redirectToDashboard() {
 	const id = getCurrentId();
-	const account = id ? findAccount(id) : null;
+	const account = id ? findAccounts({ ids: [id] })[0] : null;
 
 	if (!id || !account) {
 		window.location.href = "/log-in/";

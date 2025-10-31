@@ -45,7 +45,6 @@ function PasswordResetCard() {
 	const navigate = useNavigate();
 	const location = useLocation();
 
-	// Prefill from router state if available
 	const initialEmail = React.useMemo(() => {
 		const state = location.state as { email?: string } | undefined;
 		return state?.email ?? "";
@@ -70,7 +69,6 @@ function PasswordResetCard() {
 			return;
 		}
 
-		// simple email format check
 		const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!emailPattern.test(emailTrimmed)) {
 			setFeedback({ type: "error", text: "Enter a valid email address." });

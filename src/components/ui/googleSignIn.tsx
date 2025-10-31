@@ -1,12 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-	findAccount,
-	findAccountUsingEmail,
-	registerAccount,
-	setCurrentId,
-	type Account,
-} from "@/utils/auth";
+import { findAccounts, registerAccount, setCurrentId, type Account } from "@/utils/auth";
 
 interface GoogleCredentialResponse {
 	credential?: string;
@@ -121,7 +115,7 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 					}
 
 					if (type === "login") {
-						const account = findAccountUsingEmail(email);
+						const account = findAccounts({ email })[0];
 						if (!account) {
 							onErrorRef.current?.(
 								"No account found for your Google email. Create an account to continue."
@@ -152,8 +146,8 @@ export default function GoogleSignIn({ type, onSuccess, onError }: GoogleSignInP
 					}
 
 					if (type === "signup") {
-						const existing = findAccountUsingEmail(email);
-						if (existing) {
+						const existing = findAccounts({ email });
+						if (existing.length > 0) {
 							onErrorRef.current?.(
 								"An account with this email already exists. Log in instead."
 							);

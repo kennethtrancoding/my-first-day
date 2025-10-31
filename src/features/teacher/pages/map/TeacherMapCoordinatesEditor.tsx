@@ -65,7 +65,7 @@ function normalize(s: string | undefined) {
 export default function TeacherMapCoordinatesEditor() {
 	const mapRef = useRef<L.Map | null>(null);
 	const polyRefs = useRef<Record<string, L.Polygon>>({});
-	// Add marker refs to keep references to vertex markers so we can move them during polygon drag
+	
 	const markerRefs = useRef<Record<string, (L.Marker | null)[]>>({});
 
 	const [rooms, setRooms] = useStoredState<RoomData[]>("teacher:mapRooms", () =>
@@ -229,7 +229,7 @@ export default function TeacherMapCoordinatesEditor() {
 			window.alert("Select a room first (click its polygon).");
 			return;
 		}
-		// cleanup marker refs for the removed room
+		
 		delete markerRefs.current[selectedRoom];
 		setRooms((prev) => prev.filter((r) => r.room !== selectedRoom));
 		setSelectedRoom(null);
@@ -271,7 +271,7 @@ export default function TeacherMapCoordinatesEditor() {
 				<ZoomControlBottomLeft />
 
 				<TileLayer
-					url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+					url="https:
 					attribution=""
 					maxZoom={19}
 					maxNativeZoom={19}
@@ -429,7 +429,7 @@ export default function TeacherMapCoordinatesEditor() {
 									pane="markerPane"
 									zIndexOffset={1000}
 									icon={vertexIcon}
-									// keep a ref to each vertex marker so it can be moved during polygon drag
+									
 									ref={(el) => {
 										markerRefs.current[b.room] =
 											markerRefs.current[b.room] || [];

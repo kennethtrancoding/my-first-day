@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Users, ArrowRight, Calendar, MapPin } from "lucide-react";
+import { Users, ArrowRight, Calendar, MapPin, User } from "lucide-react";
 import {
 	Card,
 	CardContent,
@@ -17,10 +17,7 @@ import { useNavigate } from "react-router-dom";
 const StudentClubListPage = () => {
 	const navigate = useNavigate();
 	const [clubs] = useTeacherClubs();
-	const featuredClubs = React.useMemo(
-		() => clubs.filter((club) => club.featured),
-		[clubs]
-	);
+	const featuredClubs = React.useMemo(() => clubs.filter((club) => club.featured), [clubs]);
 
 	return (
 		<StudentDashboardLayout activePage="clubs">
@@ -28,7 +25,8 @@ const StudentClubListPage = () => {
 				{featuredClubs.length === 0 ? (
 					<Card className="border-dashed mb-12">
 						<CardContent className="p-8 text-center text-muted-foreground">
-							Teachers have not featured any clubs yet. Browse the full directory below.
+							Teachers have not featured any clubs yet. Browse the full directory
+							below.
 						</CardContent>
 					</Card>
 				) : (
@@ -71,6 +69,12 @@ const StudentClubListPage = () => {
 										<MapPin className="h-4 w-4" />
 										<span>{club.location}</span>
 									</div>
+									<div className="flex items-center gap-2">
+										<User className="h-4 w-4" />
+										<span className="truncate">
+											Advisor: {club.advisor ?? "To be announced"}
+										</span>
+									</div>
 								</CardContent>
 								<CardFooter className="mt-auto flex flex-wrap gap-2">
 									<Button
@@ -86,7 +90,7 @@ const StudentClubListPage = () => {
 										size="sm"
 										onClick={(event) => {
 											event.stopPropagation();
-											navigate("/student/home/messages/");
+											navigate(`/student/home/messages/${club.advisorId}/`);
 										}}>
 										Message advisor
 									</Button>

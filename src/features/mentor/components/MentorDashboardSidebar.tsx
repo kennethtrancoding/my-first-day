@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useNavigate } from "react-router-dom";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
-import { getCurrentId, findAccount, logout } from "@/utils/auth";
+import { findAccounts, getCurrentId, logout } from "@/utils/auth";
 import { useMemo } from "react";
 
 interface MentorDashboardSidebarProps {
@@ -29,7 +29,10 @@ const sidebarMenuItems = [
 function MentorDashboardSidebar({ activePage }: MentorDashboardSidebarProps) {
 	const navigate = useNavigate();
 	const currentId = useMemo(() => getCurrentId(), []);
-	const account = useMemo(() => (currentId ? findAccount(currentId) ?? null : null), [currentId]);
+	const account = useMemo(
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] ?? null : null),
+		[currentId]
+	);
 
 	const displayName = useMemo(() => {
 		const profile = account?.profile ?? {};

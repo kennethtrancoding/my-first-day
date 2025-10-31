@@ -47,9 +47,11 @@ const StudentClubDetailPage = () => {
 		);
 	}
 
-	const openAdvisorMessages = () => {
-		navigate("/student/home/messages/");
-	};
+	function openAdvisorMessages(advisorId?) {
+		advisorId
+			? navigate(`/student/home/messages/${advisorId}/`)
+			: navigate("/student/home/messages/");
+	}
 
 	return (
 		<StudentDashboardLayout activePage="clubs">
@@ -150,16 +152,20 @@ const StudentClubDetailPage = () => {
 										<div>
 											<p className="font-medium">Club Advisor</p>
 											<p className="text-muted-foreground">{club.advisor}</p>
-											{(club.advisorProfile?.department ||
-												club.advisorProfile?.roomNumber) && (
+											{(club.advisorProfile?.profile?.teacherDepartment ||
+												club.advisorProfile?.profile?.teacherRoom) && (
 												<p className="text-xs text-muted-foreground">
-													{club.advisorProfile?.department}
-													{club.advisorProfile?.department &&
-													club.advisorProfile?.roomNumber
+													{
+														club.advisorProfile?.profile
+															?.teacherDepartment
+													}
+													{club.advisorProfile?.profile
+														?.teacherDepartment &&
+													club.advisorProfile?.profile?.teacherRoom
 														? " • "
 														: ""}
 													{formatRoomNumber(
-														club.advisorProfile?.roomNumber
+														club.advisorProfile?.profile?.teacherRoom
 													)}
 												</p>
 											)}
@@ -172,13 +178,15 @@ const StudentClubDetailPage = () => {
 											<Button
 												variant="link"
 												className="h-auto p-0 text-left text-muted-foreground"
-												onClick={openAdvisorMessages}>
+												onClick={() => openAdvisorMessages(club.advisorId)}>
 												{club.contactEmail}
 											</Button>
 										</div>
 									</div>
 									<Separator />
-									<Button className="w-full" onClick={openAdvisorMessages}>
+									<Button
+										className="w-full"
+										onClick={() => openAdvisorMessages(club.advisorId)}>
 										Message the Advisor
 									</Button>
 								</CardContent>

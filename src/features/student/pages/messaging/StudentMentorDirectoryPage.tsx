@@ -14,6 +14,7 @@ import {
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
 } from "@/hooks/useNotifications";
+import { mentors as precannedMentors } from "@/utils/people";
 import {
 	CONVERSATION_STORE_KEY,
 	ConversationStore,
@@ -28,9 +29,8 @@ import {
 	upsertConversationRequest,
 } from "@/utils/messaging";
 
-// Minimal card/thread shape for this page (not the full Account)
 type MentorItem = {
-	id: number; // mentor account id
+	id: number;
 	name: string;
 	email: string;
 	type: "teacher" | "student";
@@ -46,7 +46,6 @@ type MentorItem = {
 export default function StudentMentorDirectoryPage() {
 	const navigate = useNavigate();
 
-	// Current user id (student)
 	const currentId = React.useMemo(() => getCurrentId() ?? 0, []);
 	const storagePrefix = React.useMemo(
 		() => `user:${currentId || 0}:mentorDirectory`,
@@ -55,7 +54,6 @@ export default function StudentMentorDirectoryPage() {
 
 	const [search, setSearch] = useStoredState<string>(`${storagePrefix}:search`, "");
 
-	// Per-student "directory" memory of requested flags & last activity
 	const [localThreads, setLocalThreads] = useStoredState<MentorItem[]>(
 		`user:${currentId || 0}:studentMessages:threads`,
 		() => []
@@ -80,52 +78,74 @@ export default function StudentMentorDirectoryPage() {
 		[]
 	);
 
-	// Pull all mentors (excluding current account)
 	const mentorAccounts = React.useMemo(
 		() => allAccounts.filter((a) => a.role === "mentor" && a.id !== currentId),
 		[allAccounts, currentId]
 	);
 
-	// Build live mentor items from accounts + conversation store
-	const dynamicMentors = React.useMemo<MentorItem[]>(() => {
-		if (!currentId) return [];
+	const buildMentorItem = React.useCallback(
+		(mentor: Account): MentorItem => {
+			const displayName =
+				getDisplayNameForAccount(mentor) || mentor.email || `Mentor ${mentor.id}`;
+			const type = mentor.profile?.mentorType === "teacher" ? "teacher" : "student";
 
-		return mentorAccounts.map((mentor) => {
-			const key = getConversationKey(currentId, mentor.id);
-			const thread = conversationStore[key];
-			const conversation = mapMessagesForViewer(thread, currentId);
+			const key = currentId ? getConversationKey(currentId, mentor.id) : undefined;
+			const thread = key ? conversationStore[key] : undefined;
+			const conversation = currentId ? mapMessagesForViewer(thread, currentId) : [];
 			const lastActivity = getLastActivityTimestamp(thread);
 			const hasConnected = conversation.length > 0;
 
-			const name = getDisplayNameForAccount(mentor) ?? mentor.email;
-			const type = mentor.profile?.mentorType === "teacher" ? "teacher" : "student";
 			const bio =
 				mentor.profile?.mentorBio?.trim() ||
 				mentor.profile?.bio?.trim() ||
-				`${name} is available to mentor other students.`;
+				`${displayName} is available to mentor other students.`;
 
 			return {
 				id: mentor.id,
-				name,
+				name: displayName,
 				email: mentor.email,
 				type,
 				bio,
 				profilePicture: placeholderProfile,
 				conversation,
 				hasConnected,
-				requestedCommunication: false, // will be decorated below
+				requestedCommunication: false,
 				lastMessage: formatLastActivity(lastActivity ?? undefined),
 				lastMessageUnix: lastActivity ?? undefined,
 			};
-		});
-	}, [conversationStore, mentorAccounts, currentId]);
+		},
+		[currentId, conversationStore]
+	);
 
-	// Merge local state (requested flags) with live dynamic mentors
+	const dynamicMentors = React.useMemo<MentorItem[]>(() => {
+		if (!currentId) return [];
+
+		return mentorAccounts.map(buildMentorItem);
+	}, [currentId, mentorAccounts, buildMentorItem]);
+
+	const seededMentors = React.useMemo<MentorItem[]>(() => {
+		return precannedMentors.filter((mentor) => mentor.id !== currentId).map(buildMentorItem);
+	}, [currentId, buildMentorItem]);
+
 	const availableMentors = React.useMemo<MentorItem[]>(() => {
 		const byId = new Map<number, MentorItem>();
-		// start from dynamic (authoritative for conversation)
-		dynamicMentors.forEach((m) => byId.set(m.id, m));
-		// overlay local-only flags (e.g., requestedCommunication)
+		seededMentors.forEach((m) => byId.set(m.id, m));
+		dynamicMentors.forEach((mentor) => {
+			const existing = byId.get(mentor.id);
+			if (!existing) {
+				byId.set(mentor.id, mentor);
+				return;
+			}
+			byId.set(mentor.id, {
+				...existing,
+				...mentor,
+				conversation: mentor.conversation,
+				hasConnected: mentor.hasConnected,
+				requestedCommunication: mentor.requestedCommunication,
+				lastMessage: mentor.lastMessage,
+				lastMessageUnix: mentor.lastMessageUnix,
+			});
+		});
 		localThreads.forEach((local) => {
 			const base = byId.get(local.id);
 			if (!base) {
@@ -141,12 +161,10 @@ export default function StudentMentorDirectoryPage() {
 			}
 		});
 		return [...byId.values()];
-	}, [localThreads, dynamicMentors]);
+	}, [localThreads, dynamicMentors, seededMentors]);
 
-	// Back link param (last-selected mentor route id)
 	const mentorSlug = Number(useParams()["last-selected"]);
 
-	// Search
 	const filtered = React.useMemo<MentorItem[]>(() => {
 		const q = search.trim().toLowerCase();
 		if (!q) return availableMentors;
@@ -183,7 +201,6 @@ export default function StudentMentorDirectoryPage() {
 				<ScrollArea className="h-[calc(100vh-10rem)] pr-2">
 					<div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 						{filtered.map((m) => {
-							// Check if there is a pending request (ID-based)
 							const req = getConversationRequest(
 								conversationRequests,
 								currentId,
@@ -233,7 +250,6 @@ export default function StudentMentorDirectoryPage() {
 												const nowStr = new Date().toLocaleString();
 												const nowUnix = Date.now();
 
-												// Mark as requested in local view
 												setLocalThreads((prev) => {
 													const exists = prev.find((t) => t.id === m.id);
 													if (exists) {
@@ -249,7 +265,6 @@ export default function StudentMentorDirectoryPage() {
 																: t
 														);
 													}
-													// seed a minimal record if it wasn't there
 													return [
 														...prev,
 														{
@@ -261,7 +276,6 @@ export default function StudentMentorDirectoryPage() {
 													];
 												});
 
-												// Persist a request (ID-based)
 												setConversationRequests((prev) =>
 													upsertConversationRequest(prev, {
 														initiator: currentId,
@@ -270,14 +284,12 @@ export default function StudentMentorDirectoryPage() {
 													})
 												);
 
-												// Local notification (student)
 												addStudentNotification({
 													message: `Chat request sent to ${m.name}.`,
 													type: "request",
 													contextId: m.id,
 												});
 
-												// Notify mentor (target by recipientId)
 												const studentRouteId = buildAccountThreadId(
 													currentId,
 													"student"
@@ -295,7 +307,6 @@ export default function StudentMentorDirectoryPage() {
 													}
 												);
 
-												// Jump to messages for that mentor
 												navigate(`/student/home/messages/${m.id}`);
 											}}
 											aria-label={`Start chat with ${m.name}`}

@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import placeholderProfile from "@/assets/placeholder-profile.svg";
 import { useNavigate, useParams } from "react-router-dom";
 import { useStoredState } from "@/hooks/useStoredState";
-import { getCurrentId, type Account, getDisplayNameForAccount, findAccount } from "@/utils/auth";
+import { findAccounts, getCurrentId, type Account } from "@/utils/auth";
 import {
 	pushNotificationToOtherRole,
 	getDisplayNameForCurrentAccount,
@@ -28,9 +28,8 @@ import {
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import TeacherDashboardSidebar from "../../components/TeacherDashboardSidebar";
 
-// Minimal UI thread item shape for this page
 type ThreadItem = {
-	id: number; // student account id
+	id: number;
 	name: string;
 	email: string;
 	profilePicture: string;
@@ -60,7 +59,7 @@ function TeacherMessagingLayout() {
 	const navigate = useNavigate();
 	const currentId = React.useMemo(() => getCurrentId() ?? 0, []);
 	const account = React.useMemo(
-		() => (currentId ? findAccount(currentId) ?? null : null),
+		() => (currentId ? findAccounts({ ids: [currentId] })[0] ?? null : null),
 		[currentId]
 	);
 
@@ -79,7 +78,6 @@ function TeacherMessagingLayout() {
 		[currentId]
 	);
 
-	// Local UI-only memory (requested flag, lastMessage timestamps, etc.)
 	const [localThreads, setLocalThreads] = useStoredState<ThreadItem[]>(
 		`${storagePrefix}:threads`,
 		() => []
@@ -118,13 +116,11 @@ function TeacherMessagingLayout() {
 	);
 	const ROW_LIMIT = 6;
 
-	// All students except me
 	const studentAccounts = React.useMemo(
 		() => allAccounts.filter((acc) => acc.role === "student" && acc.id !== currentId),
 		[allAccounts, currentId]
 	);
 
-	// Build dynamic threads from store (authoritative for messages)
 	const dynamicStudentThreads = React.useMemo<ThreadItem[]>(() => {
 		if (!currentId) return [];
 		return studentAccounts.map((student) => {
@@ -133,7 +129,7 @@ function TeacherMessagingLayout() {
 			const conversation = mapMessagesForViewer(thread, currentId);
 			const lastActivity = getLastActivityTimestamp(thread);
 			const hasConnected = conversation.length > 0;
-			const displayName = getDisplayNameForAccount(student) ?? student.email;
+			const displayName = student.profile?.displayName ?? student.email;
 			const parsedGrade = Number.parseInt(student.profile?.grade ?? "", 10);
 
 			return {
@@ -143,7 +139,7 @@ function TeacherMessagingLayout() {
 				grade: Number.isNaN(parsedGrade) ? undefined : parsedGrade,
 				assignedToMentor: hasConnected,
 				hasConnected,
-				requestedCommunication: false, // decorated later
+				requestedCommunication: false,
 				bio: student.profile?.bio?.trim() || `${displayName} recently joined My First Day.`,
 				profilePicture: placeholderProfile,
 				conversation,
@@ -153,7 +149,6 @@ function TeacherMessagingLayout() {
 		});
 	}, [conversationStore, studentAccounts, currentId]);
 
-	// Merge with local UI flags (requestedCommunication, lastMessage overrides)
 	const threads = React.useMemo<ThreadItem[]>(() => {
 		const merged = new Map<number, ThreadItem>();
 		dynamicStudentThreads.forEach((t) => merged.set(t.id, t));
@@ -171,7 +166,6 @@ function TeacherMessagingLayout() {
 			}
 		});
 
-		// decorate pending requests (ID based)
 		const decorated = [...merged.values()].map((t) => {
 			const req = getConversationRequest(conversationRequests, t.id, currentId);
 			if (req?.direction === "student_to_mentor" && !t.hasConnected) {
@@ -182,29 +176,100 @@ function TeacherMessagingLayout() {
 
 		return decorated.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
 	}, [dynamicStudentThreads, localThreads, conversationRequests, currentId]);
+	const hasSidebarThreads = threads.length > 0;
 
-	// Route -> selection
-	React.useEffect(() => {
-		if (routeId) {
-			const parsed = Number(routeId);
-			if (!Number.isNaN(parsed)) {
-				setSelectedId(parsed);
-				return;
+	const assignedStudentThreads = React.useMemo(
+		() => threads.filter((t) => t.assignedToMentor),
+		[threads]
+	);
+	const connectedStudentThreads = React.useMemo(
+		() => threads.filter((t) => t.hasConnected),
+		[threads]
+	);
+	const pendingStudentThreads = React.useMemo(
+		() => threads.filter((t) => t.requestedCommunication && !t.hasConnected),
+		[threads]
+	);
+	const defaultThreadId = React.useMemo(() => {
+		const priorityLists: ThreadItem[][] = [
+			assignedStudentThreads,
+			connectedStudentThreads,
+			pendingStudentThreads,
+		];
+		for (const group of priorityLists) {
+			const candidate = group.find((item) => item?.id != null);
+			if (candidate) {
+				return candidate.id;
 			}
 		}
-		setSelectedId((prev) => (prev == null && threads.length ? threads[0].id : prev));
-	}, [routeId, threads, setSelectedId]);
+		return threads.length === 0 ? 0 : null;
+	}, [assignedStudentThreads, connectedStudentThreads, pendingStudentThreads]);
+	const placeholderThread = React.useMemo<ThreadItem>(
+		() => ({
+			id: 0,
+			name: "Messages",
+			email: "",
+			profilePicture: placeholderProfile,
+			hasConnected: false,
+			requestedCommunication: false,
+			conversation: [],
+			assignedToMentor: false,
+		}),
+		[]
+	);
 
 	React.useEffect(() => {
-		if (selectedId != null && !threads.some((s) => s.id === selectedId)) {
-			setSelectedId(threads[0]?.id ?? null);
+		if (!routeId) return;
+		const parsed = Number(routeId);
+		if (!Number.isNaN(parsed)) {
+			setSelectedId(parsed);
 		}
-	}, [selectedId, threads, setSelectedId]);
+	}, [routeId, setSelectedId]);
 
-	const selected = React.useMemo(
-		() => (selectedId == null ? undefined : threads.find((s) => s.id === selectedId)),
-		[threads, selectedId]
-	);
+	React.useEffect(() => {
+		if (routeId) return;
+		if (defaultThreadId == null) return;
+		if (selectedId === defaultThreadId) return;
+		setSelectedId(defaultThreadId);
+		navigate(`/teacher/home/messages/${defaultThreadId}`, { replace: true });
+	}, [routeId, defaultThreadId, navigate, selectedId, setSelectedId]);
+
+	React.useEffect(() => {
+		const hasSelection =
+			selectedId != null &&
+			(threads.some((thread) => thread.id === selectedId) ||
+				(!hasSidebarThreads && selectedId === 0));
+		if (hasSelection) {
+			return;
+		}
+		const fallbackId = defaultThreadId;
+		if (fallbackId == null) {
+			if (selectedId != null) {
+				setSelectedId(null);
+			}
+			return;
+		}
+		if (selectedId !== fallbackId) {
+			setSelectedId(fallbackId);
+		}
+		const parsedRoute = routeId ? Number(routeId) : NaN;
+		if (!routeId || Number.isNaN(parsedRoute) || parsedRoute !== fallbackId) {
+			navigate(`/teacher/home/messages/${fallbackId}`, { replace: true });
+		}
+	}, [threads, selectedId, defaultThreadId, navigate, routeId, setSelectedId, hasSidebarThreads]);
+
+	const selected = React.useMemo(() => {
+		if (!hasSidebarThreads) {
+			return placeholderThread;
+		}
+		return selectedId == null ? undefined : threads.find((s) => s.id === selectedId);
+	}, [threads, selectedId, placeholderThread, hasSidebarThreads]);
+	const showPlaceholder = !hasSidebarThreads;
+	React.useEffect(() => {
+		if (showPlaceholder && composer) {
+			setComposer("");
+		}
+	}, [showPlaceholder, composer, setComposer]);
 
 	const endRef = React.useRef<HTMLDivElement | null>(null);
 	React.useEffect(() => {
@@ -220,12 +285,11 @@ function TeacherMessagingLayout() {
 
 	function sendMessage() {
 		const text = composer.trim();
-		if (!text || selectedId == null || !selected || !currentId) return;
+		if (!text || selectedId == null || !selected || showPlaceholder || !currentId) return;
 
 		const nowStr = new Date().toLocaleString();
 		const nowUnix = Date.now();
 
-		// Persist to the shared conversation store (ID-based)
 		setConversationStore((prevStore) =>
 			appendConversationMessage(prevStore, {
 				from: currentId,
@@ -234,10 +298,8 @@ function TeacherMessagingLayout() {
 			})
 		);
 
-		// Any pending request can be cleared now (ID-based)
 		setConversationRequests((prev) => removeConversationRequest(prev, selected.id, currentId));
 
-		// Update local UI list to bump timestamps
 		setLocalThreads((prev) => {
 			const updated = prev.map((t) =>
 				t.id !== selected.id
@@ -251,7 +313,7 @@ function TeacherMessagingLayout() {
 							lastMessageUnix: nowUnix,
 					  }
 			);
-			// ensure item exists in case it wasn't in local list
+
 			if (!updated.some((t) => t.id === selected.id)) {
 				updated.push({
 					...selected,
@@ -265,7 +327,6 @@ function TeacherMessagingLayout() {
 			return updated.sort((a, b) => (b.lastMessageUnix || 0) - (a.lastMessageUnix || 0));
 		});
 
-		// Notify student
 		const studentRouteId = buildAccountThreadId(currentId, "mentor");
 		pushNotificationToOtherRole("student", `${teacherDisplayName} sent you a new message.`, {
 			type: "message",
@@ -377,17 +438,24 @@ function TeacherMessagingLayout() {
 							<CardContent className="flex-1 flex flex-col p-0">
 								<ScrollArea className="flex-1 p-4">
 									<div className="space-y-3 flex flex-col">
-										{selected?.conversation?.map((m) => (
-											<div
-												key={m.id}
-												className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
-													m.from === "in"
-														? "bg-muted text-foreground self-start"
-														: "bg-primary text-primary-foreground self-end ml-auto"
-												}`}>
-												{m.text}
+										{showPlaceholder ? (
+											<div className="flex-1 flex items-center justify-center py-12 text-sm text-muted-foreground text-center">
+												No student conversations yet. Once a student reaches
+												out, their messages will appear here.
 											</div>
-										))}
+										) : (
+											selected?.conversation?.map((m) => (
+												<div
+													key={m.id}
+													className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
+														m.from === "in"
+															? "bg-muted text-foreground self-start"
+															: "bg-primary text-primary-foreground self-end ml-auto"
+													}`}>
+													{m.text}
+												</div>
+											))
+										)}
 										<div ref={endRef} />
 									</div>
 								</ScrollArea>
@@ -397,15 +465,20 @@ function TeacherMessagingLayout() {
 											rows={1}
 											className="flex-1 rounded-md border border-input p-2 resize-none"
 											placeholder={
-												selected?.name
+												showPlaceholder
+													? "No students available to message yet"
+													: selected?.name
 													? `Message ${selected.name}`
 													: "Select a student to start a conversation"
 											}
+											disabled={showPlaceholder}
 											value={composer}
 											onChange={(e) => setComposer(e.target.value)}
 											onKeyDown={handleKeyDown}
 										/>
-										<Button onClick={sendMessage} disabled={!composer.trim()}>
+										<Button
+											onClick={sendMessage}
+											disabled={showPlaceholder || !composer.trim()}>
 											Send
 										</Button>
 									</div>
